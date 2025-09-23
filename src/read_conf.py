@@ -24,7 +24,12 @@ class read_conf:
         if not os.path.isabs(sqlite_file):
             sqlite_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), sqlite_file)
         
-        db = sqlite3.connect(sqlite_file, check_same_thread=False)
+        db = sqlite3.connect(sqlite_file, check_same_thread=False, timeout=30.0)
+        # 启用 WAL 模式以减少锁定问题
+        db.execute('PRAGMA journal_mode=WAL')
+        db.execute('PRAGMA synchronous=NORMAL')
+        db.execute('PRAGMA cache_size=1000')
+        db.execute('PRAGMA temp_store=MEMORY')
         # 不设置 row_factory，保持返回元组格式以兼容 JSON 序列化
         database_name = os.path.basename(sqlite_file)
         return db, database_name

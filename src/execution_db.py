@@ -7,9 +7,16 @@ from src.read_conf import read_conf
 class Date_base:
 
     def __init__(self):
-        read_db_conf = read_conf()
-        self.db, self.database_name = read_db_conf.database()
+        self.read_db_conf = read_conf()
+        self.database_name = self.read_db_conf.get_database_name()
         self.print_log = Log()
+        self.db = None
+    
+    def _get_connection(self):
+        """获取数据库连接"""
+        if self.db is None:
+            self.db, _ = self.read_db_conf.database()
+        return self.db
 
     def get_database_name(self):
         return self.database_name
@@ -20,12 +27,14 @@ class Date_base:
             self.db.close()
 
     def insert(self, sql):
+        db = None
         try:
-            cursor = self.db.cursor()
+            db, _ = self.read_db_conf.database()
+            cursor = db.cursor()
             sql = sql.replace("'None'", "NULL")
             cursor.execute(sql)
-            self.db.commit()
-            self._close_connection()
+            db.commit()
+            cursor.close()
             return True
         except Exception as e:
             error_str = str(e).upper()
@@ -40,12 +49,17 @@ class Date_base:
                 err2(e)
                 self.print_log.write_log(f"错误 {sql}", 'warning')
                 return False
+        finally:
+            if db:
+                db.close()
 
     def update(self, sql):
+        db = None
         try:
-            cursor = self.db.cursor()
+            db, _ = self.read_db_conf.database()
+            cursor = db.cursor()
             cursor.execute(sql)
-            self.db.commit()
+            db.commit()
             cursor.close()
             return True
         except Exception as e:
@@ -56,11 +70,14 @@ class Date_base:
                 self.print_log.write_log(f'{sql}', 'error')
             return False
         finally:
-            self._close_connection()
+            if db:
+                db.close()
 
     def select(self, sql):
+        db = None
         try:
-            cursor = self.db.cursor()
+            db, _ = self.read_db_conf.database()
+            cursor = db.cursor()
             cursor.execute(sql)
             result = cursor.fetchall()
             cursor.close()
@@ -73,15 +90,18 @@ class Date_base:
                 self.print_log.write_log(f'{sql}', 'error')
             return False, None
         finally:
-            self._close_connection()
+            if db:
+                db.close()
 
     def delete(self, sql):
+        db = None
         try:
-            cursor = self.db.cursor()
+            db, _ = self.read_db_conf.database()
+            cursor = db.cursor()
             cursor.execute(sql)
             result = cursor.fetchall()
             cursor.close()
-            self.db.commit()  # 添加提交操作
+            db.commit()
             return result
         except Exception as e:
             err2(e)
@@ -89,13 +109,16 @@ class Date_base:
                 self.print_log.write_log(f"连接数据库超时", 'error')
             self.print_log.write_log(sql, 'error')
         finally:
-            self._close_connection()
+            if db:
+                db.close()
 
     def system_sql(self, sql):
+        db = None
         try:
-            cursor = self.db.cursor()
+            db, _ = self.read_db_conf.database()
+            cursor = db.cursor()
             cursor.execute(sql)
-            self.db.commit()  # 修正：应该是 db.commit() 而不是 cursor.commit()
+            db.commit()
             cursor.close()
         except Exception as e:
             err2(e)
@@ -103,4 +126,5 @@ class Date_base:
                 self.print_log.write_log(f"连接数据库超时", 'error')
             self.print_log.write_log(sql, 'error')
         finally:
-            self._close_connection()
+            if db:
+                db.close()
