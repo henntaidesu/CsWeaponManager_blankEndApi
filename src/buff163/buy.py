@@ -31,4 +31,11 @@ def insert_db():
     '''
     Date_base().insert(sql)
     return "写入成功", 200
+
+@buff163BuyV1.route('/countData', methods=['get'])
+def countData():
+    sql = '''SELECT COUNT(*) FROM "main"."buff_buy";'''
+    flag, result = Date_base().select(sql)
+    print(result[0][0])
+    return jsonify({"count": result[0][0]}), 200
     

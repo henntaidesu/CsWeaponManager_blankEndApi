@@ -39,7 +39,7 @@ def blankEndApi():
     app.register_blueprint(webSellV1, url_prefix = '/webSellV1')
     app.register_blueprint(webLentV1, url_prefix = '/webLentV1')
     app.register_blueprint(dataSourcePage, url_prefix='/dataSourcePageV1')
-    app.register_blueprint(buff163BuyV1, url_prefix = '/buff163BuyV1')
+    app.register_blueprint(buff163BuyV1, url_prefix = '/python')
     app.run(debug=True, port=9001, host='0.0.0.0')
 
 if __name__ == '__main__':
