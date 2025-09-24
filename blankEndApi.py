@@ -11,11 +11,23 @@ from src.web.sell_page import webSellV1
 from src.web.lent import webLentV1
 from src.web.DataSource_page import dataSourcePage
 
+# 导入新的数据库管理器
+from src.db_manager import init_database
+
 app = Flask(__name__)
 CORS(app)
 
 def blankEndApi():
     print("Blank End API Start")
+    
+    # 初始化数据库
+    print("正在初始化数据库...")
+    if init_database():
+        print("✅ 数据库初始化成功")
+    else:
+        print("❌ 数据库初始化失败")
+        return
+    
     app.register_blueprint(configV1, url_prefix = '/configV1')
     app.register_blueprint(youpin898BuyV1, url_prefix = '/youpin898BuyV1')
     app.register_blueprint(youpin898SellV1, url_prefix = '/youpin898SellV1')
