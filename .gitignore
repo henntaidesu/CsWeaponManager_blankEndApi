@@ -217,5 +217,5 @@ log
 *.log
 
 *.db
-csweaponmanager.db
+csweaponmanager.db*
 sqlite_schema.sql
