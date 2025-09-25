@@ -12,12 +12,17 @@ def insert_db():
     weaponitem_name = data['weaponitem_name']
     float_range = data['float_range']
     price = data['price']
-    state_text = data['state_text']
+    state_sub = data['state_text']
     created_at = data['created_at']
     pay_method_text = data['pay_method_text']
     steam_price_cny = data['steam_price_cny']
     seller_id = data['seller_id']
     weapon_float = data['weapon_float']
+
+    if state_sub == "已下架":
+        state_text = "已下架"
+        
+
     sql = f'''INSERT INTO "main"."buff_buy" ("ID", "weapon_name", "weapon_type", "item_name", "weapon_float", "float_range", 
     "price", "seller_name", "status", "from", "order_time", "sell_of", "payment", "trade_type", "data_user") VALUES 
     ('{item_id}', '{weaponitem_name}', '{weapon_type}', '{item_name}', {weapon_float}, '{float_range}', {price}, '{seller_id}', 
