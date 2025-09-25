@@ -154,7 +154,7 @@ class DatabaseManager:
             if indexes:
                 for idx in indexes:
                     idx_name = idx.get('name', f"idx_{table_name}_{idx['columns'][0]}")
-                    idx_cols = ', '.join(idx['columns'])
+                    idx_cols = ', '.join([f'[{col}]' for col in idx['columns']])
                     idx_sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table_name} ({idx_cols})"
                     self.execute_update(idx_sql)
             
@@ -166,7 +166,7 @@ class DatabaseManager:
     def add_column(self, table_name: str, column_def: Dict[str, Any]) -> bool:
         """添加列到现有表"""
         try:
-            col_sql = f"{column_def['name']} {column_def['type']}"
+            col_sql = f"[{column_def['name']}] {column_def['type']}"
             if column_def.get('not_null'):
                 col_sql += " NOT NULL"
             if column_def.get('default') is not None:
