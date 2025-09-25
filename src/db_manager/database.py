@@ -121,16 +121,32 @@ class DatabaseManager:
         try:
             # 构建创建表的SQL
             column_defs = []
+            primary_keys = []
+
+            # 先收集所有主键
             for col in columns:
-                col_def = f"{col['name']} {col['type']}"
                 if col.get('primary_key'):
+                    primary_keys.append(f'[{col["name"]}]')
+
+            # 生成列定义
+            for col in columns:
+                # 对列名使用方括号以处理保留字
+                col_name = f'[{col["name"]}]'
+                col_def = f"{col_name} {col['type']}"
+
+                # 只有单个主键时才在列定义中加 PRIMARY KEY
+                if col.get('primary_key') and len(primary_keys) == 1:
                     col_def += " PRIMARY KEY"
                 if col.get('not_null'):
                     col_def += " NOT NULL"
                 if col.get('default') is not None:
                     col_def += f" DEFAULT {col['default']}"
                 column_defs.append(col_def)
-            
+
+            # 处理复合主键（在表级别定义）
+            if len(primary_keys) > 1:
+                column_defs.append(f"PRIMARY KEY ({', '.join(primary_keys)})")
+
             sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(column_defs)})"
             self.execute_update(sql)
             

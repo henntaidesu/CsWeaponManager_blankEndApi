@@ -10,6 +10,7 @@ from .database import DatabaseManager
 # 导入所有模型
 from .index import ConfigModel, FundsModel, BuyModel, SellModel, LeaseModel
 from .yyyp import YyypBuyModel, YyypSellModel, YyypLentModel, YyypMessageboxModel
+from .buff import BuffBuyModel, BuffSellModel, BuffLentModel
 
 
 class DBManager:
@@ -36,32 +37,40 @@ class DBManager:
             YyypMessageboxModel,
 
             # buff表
+            BuffBuyModel,
+            BuffSellModel,
+            BuffLentModel,
         ]
     
     def initialize_database(self) -> bool:
-        """初始化数据库 - 检查并创建所有表"""
+        """初始化数据库 - 按顺序检查并创建所有表"""
         print("正在初始化数据库...")
-        
+
         success_count = 0
         total_count = len(self.models)
-        
+
         for model_class in self.models:
             try:
-                print(f"检查表: {model_class.get_table_name()}")
-                
+                table_name = model_class.get_table_name()
+                print(f"检查表: {table_name}")
+
                 if model_class.ensure_table_exists():
-                    # print(f"✅ 表 {model_class.get_table_name()} 检查完成")
+                    print(f"✅ 表 {table_name} 检查完成")
                     success_count += 1
                 else:
-                    pass
-                    # print(f"❌ 表 {model_class.get_table_name()} 检查失败")
-                    
+                    print(f"❌ 表 {table_name} 检查失败")
+
             except Exception as e:
-                pass
-                # print(f"❌ 表 {model_class.get_table_name()} 初始化异常: {e}")
-        
+                print(f"❌ 表 {model_class.get_table_name()} 初始化异常: {e}")
+
         print(f"数据库初始化完成: {success_count}/{total_count} 个表成功")
-        return success_count == total_count
+
+        # 如果有失败的表，提供详细信息
+        if success_count < total_count:
+            print(f"有 {total_count - success_count} 个表初始化失败，请检查错误信息")
+            return False
+
+        return True
     
     def get_database_info(self):
         """获取数据库信息"""
