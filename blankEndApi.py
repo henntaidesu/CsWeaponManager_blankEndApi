@@ -11,7 +11,7 @@ from src.web.sell_page import webSellV1
 from src.web.lent import webLentV1
 from src.web.DataSource_page import dataSourcePage
 from src.buff163.buy import buff163BuyV1
-
+from src.buff163.sell import buff163SellV1
 # 导入新的数据库管理器
 from src.db_manager import init_database
 
@@ -40,6 +40,7 @@ def blankEndApi():
     app.register_blueprint(webLentV1, url_prefix = '/webLentV1')
     app.register_blueprint(dataSourcePage, url_prefix='/dataSourcePageV1')
     app.register_blueprint(buff163BuyV1, url_prefix = '/buff163BuyV1')
+    app.register_blueprint(buff163SellV1, url_prefix = '/buff163SellV1')
     app.run(debug=True, port=9001, host='0.0.0.0')
 
 if __name__ == '__main__':
