@@ -140,10 +140,21 @@ class DBManager:
 # 全局数据库管理器实例
 db_manager = DBManager()
 
+# 初始化状态标志
+_database_initialized = False
+
 
 def init_database():
     """初始化数据库的便捷函数"""
-    return db_manager.initialize_database()
+    global _database_initialized
+    if _database_initialized:
+        print("数据库已初始化，跳过重复初始化")
+        return True
+
+    result = db_manager.initialize_database()
+    if result:
+        _database_initialized = True
+    return result
 
 
 def get_db_manager() -> DBManager:
