@@ -19,15 +19,15 @@ app = Flask(__name__)
 CORS(app)
 
 def blankEndApi():
-    print("Blank End API Start")
+    # print("Blank End API Start")
     
-    # 初始化数据库
-    print("正在初始化数据库...")
-    if init_database():
-        print("✅ 数据库初始化成功")
-    else:
-        print("❌ 数据库初始化失败")
-        return
+    # # 初始化数据库
+    # print("正在初始化数据库...")
+    # if init_database():
+    #     print("✅ 数据库初始化成功")
+    # else:
+    #     print("❌ 数据库初始化失败")
+    #     return
     
     app.register_blueprint(configV1, url_prefix = '/configV1')
     app.register_blueprint(youpin898BuyV1, url_prefix = '/youpin898BuyV1')

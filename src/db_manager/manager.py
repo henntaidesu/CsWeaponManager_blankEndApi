@@ -34,6 +34,8 @@ class DBManager:
             YyypSellModel,
             YyypLentModel,
             YyypMessageboxModel,
+
+            # buff表
         ]
     
     def initialize_database(self) -> bool:
@@ -48,13 +50,15 @@ class DBManager:
                 print(f"检查表: {model_class.get_table_name()}")
                 
                 if model_class.ensure_table_exists():
-                    print(f"✅ 表 {model_class.get_table_name()} 检查完成")
+                    # print(f"✅ 表 {model_class.get_table_name()} 检查完成")
                     success_count += 1
                 else:
-                    print(f"❌ 表 {model_class.get_table_name()} 检查失败")
+                    pass
+                    # print(f"❌ 表 {model_class.get_table_name()} 检查失败")
                     
             except Exception as e:
-                print(f"❌ 表 {model_class.get_table_name()} 初始化异常: {e}")
+                pass
+                # print(f"❌ 表 {model_class.get_table_name()} 初始化异常: {e}")
         
         print(f"数据库初始化完成: {success_count}/{total_count} 个表成功")
         return success_count == total_count
@@ -71,7 +75,7 @@ class DBManager:
             table_name = model_class.get_table_name()
             
             if not self.db.table_exists(table_name):
-                print(f"❌ 表 {table_name} 不存在")
+                # print(f"❌ 表 {table_name} 不存在")
                 return False
             
             # 检查字段完整性
@@ -80,10 +84,10 @@ class DBManager:
             
             missing_columns = required_columns - existing_columns
             if missing_columns:
-                print(f"❌ 表 {table_name} 缺少字段: {missing_columns}")
+                # print(f"❌ 表 {table_name} 缺少字段: {missing_columns}")
                 return False
             
-            print(f"✅ 表 {table_name} 完整性检查通过")
+            # print(f"✅ 表 {table_name} 完整性检查通过")
         
         print("✅ 所有表完整性检查通过")
         return True
@@ -95,10 +99,10 @@ class DBManager:
         for model_class in self.models:
             try:
                 if not model_class.ensure_table_exists():
-                    print(f"❌ 修复表 {model_class.get_table_name()} 失败")
+                    # print(f"❌ 修复表 {model_class.get_table_name()} 失败")
                     return False
             except Exception as e:
-                print(f"❌ 修复表 {model_class.get_table_name()} 异常: {e}")
+                # print(f"❌ 修复表 {model_class.get_table_name()} 异常: {e}")
                 return False
         
         print("✅ 表结构修复完成")
