@@ -52,6 +52,11 @@ class YyypSellModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
+            'price_original': {
+                'type': 'REAL',
+                'not_null': False,
+                'default': None
+            },
             'buyer_name': {
                 'type': 'TEXT',
                 'not_null': False,
