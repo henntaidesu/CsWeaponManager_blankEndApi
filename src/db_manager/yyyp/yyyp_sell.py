@@ -72,6 +72,11 @@ class YyypSellModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
+            'status_sub': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
             'from': {
                 'type': 'TEXT',
                 'not_null': False,

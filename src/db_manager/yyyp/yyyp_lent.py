@@ -57,6 +57,11 @@ class YyypLentModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
+            'status_sub': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
             'last_status': {
                 'type': 'TEXT',
                 'not_null': False,
