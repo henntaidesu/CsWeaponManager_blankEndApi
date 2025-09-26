@@ -60,8 +60,10 @@ def insert_webside_selldata():
     weapon_float = data['weapon_float']
     float_range = data['float_range']
     price = data['price']
+    price_original = data['price_original']
     buyer_user_name = data['buyer_user_name']
     status = data['status']
+    status_sub = data['status_sub']
     data_from = data['from']
     order_time = data['order_time']
     steamid = data['steam_id']
@@ -79,22 +81,22 @@ def insert_webside_selldata():
 
 
     sql =  (f"INSERT INTO {data_from}_sell "
-            f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price,"
-            f" buyer_name, status, \"from\", order_time, steam_id, sell_number, err_number, price_all, data_user)"
+            f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, price_original,"
+            f" buyer_name, status,  status_sub, \"from\", order_time, steam_id, sell_number, err_number, price_all, data_user)"
             f" VALUES "
-            f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},"
-            f" '{buyer_user_name}', '{status}', '{data_from}', '{order_time}', '{steamid}',"
+            f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},{price_original},"
+            f" '{buyer_user_name}', '{status}', '{status_sub}', '{data_from}', '{order_time}', '{steamid}',"
             f" '{sell_number}', '{err_number}', {price_all}, '{data_user}');")
     a_status = Date_base().insert(sql)
 
     if sell_number == 1:
         sql =  (f"INSERT INTO sell "
-                f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price,"
-                f" buyer_name, status, \"from\", order_time, steam_id,"
+                f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, price_original,"
+                f" buyer_name, status, status_sub, \"from\", order_time, steam_id,"
                 f" sell_number, err_number, price_all, data_user)"
                 f" VALUES "
-                f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},"
-                f" '{buyer_user_name}',  '{status}', '{data_from}', '{order_time}', '{steamid}',"
+                f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price}, {price_original},"
+                f" '{buyer_user_name}',  '{status}', '{status_sub}', '{data_from}', '{order_time}', '{steamid}',"
                 f" '{sell_number}', '{err_number}', {price_all}, '{data_user}');")
         Date_base().insert(sql)
         
@@ -116,8 +118,10 @@ def insert_main_selldata():
     weapon_float = data['weapon_float']
     float_range = data['float_range']
     price = data['price']
+    price_original = data['price_original']
     buyer_user_name = data['buyer_user_name']
     status = data['status']
+    status_sub = data['status_sub']
     data_from = data['from']
     order_time = data['order_time']
     steamid = data['steam_id']
@@ -133,12 +137,12 @@ def insert_main_selldata():
     price_all = data['price_all']
 
     sql =  (f"INSERT INTO sell "
-        f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price,"
-        f" buyer_name, status, \"from\", order_time, steam_id,"
+        f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, price_original,"
+        f" buyer_name, status, status_sub, \"from\", order_time, steam_id,"
         f" sell_number, err_number, price_all, data_user)"
         f" VALUES "
-        f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},"
-        f" '{buyer_user_name}', '{status}', '{data_from}', '{order_time}', '{steamid}',"
+        f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price}, {price_original},"
+        f" '{buyer_user_name}', '{status}', '{status_sub}', '{data_from}', '{order_time}', '{steamid}',"
         f" '{sell_number}', '{err_number}', {price_all}, '{data_user}');")
     a_status = Date_base().insert(sql)
     

@@ -25,7 +25,7 @@ def updateOrderStatus():
     sql = f'''UPDATE "main"."buff_buy" SET "status" = '{status}', "status_sub" = '{status_sub}' WHERE "ID" = '{item_id}';'''
     Date_base().update(sql)
     sql = f'''UPDATE "main"."buy" SET "status" = '{status}', "status_sub" = '{status_sub}' WHERE "ID" = '{item_id}';'''
-    # Date_base().update(sql)
+    Date_base().update(sql)
     return "更新成功", 200  
 
 @buff163BuyV1.route('/insert_db', methods=['post'])
@@ -57,7 +57,7 @@ def insert_db():
     ('{item_id}', '{weaponitem_name}', '{weapon_type}', '{item_name}', {weapon_float}, '{float_range}', {price}, '{seller_id}', 
     '{state}', 'buff', '{created_at}', NULL, '{pay_method_text}', NULL, '{data_user}', '{state_sub}');
     '''
-    # Date_base().insert(sql)
+    Date_base().insert(sql)
     return "写入成功", 200
 
 @buff163BuyV1.route('/countData/<user_id>', methods=['get'])

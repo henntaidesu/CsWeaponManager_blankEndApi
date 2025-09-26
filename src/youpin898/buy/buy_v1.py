@@ -68,6 +68,7 @@ def insert_webside_buydata():
     price = data['price']
     seller_name = data['seller_name']
     status = data['status']
+    status_sub = data['status_sub']
     data_from = data['from']
     order_time = data['order_time']
     steamid = data['steam_id']
@@ -86,21 +87,21 @@ def insert_webside_buydata():
 
     sql = (f"INSERT INTO {data_from}_buy "
             f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price,"
-            f" seller_name, order_time, status, \"from\", steam_id,"
+            f" seller_name, order_time, status, status_sub, \"from\", steam_id,"
             f" buy_number, err_number, price_all, payment, trade_type, data_user)"
             f" VALUES "
             f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},"
-            f" '{seller_name}', '{order_time}', '{status}', '{data_from}', '{steamid}',"
+            f" '{seller_name}', '{order_time}', '{status}', '{status_sub}', '{data_from}', '{steamid}',"
             f" '{buy_number}', '{err_number}', {price_all}, '{payment}' , '{tradeType}', '{data_user}');")
     a_status = Date_base().insert(sql)
     
     if buy_number == 1 :
         sql = (f"INSERT INTO buy "
         f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price,"
-        f" seller_name, status, \"from\", steam_id, order_time, payment, trade_type, data_user)"
+        f" seller_name, status, status_sub, \"from\", steam_id, order_time, payment, trade_type, data_user)"
         f" VALUES "
         f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},"
-        f" '{seller_name}',  '{status}', '{data_from}', '{steamid}', '{order_time}', '{payment}' , '{tradeType}', '{data_user}');")
+        f" '{seller_name}',  '{status}','{status_sub}', '{data_from}', '{steamid}', '{order_time}', '{payment}' , '{tradeType}', '{data_user}');")
         Date_base().insert(sql)
         
     if a_status == '重复数据':
@@ -123,6 +124,7 @@ def insert_main_buydata():
     price = data['price']
     seller_name = data['seller_name']
     status = data['status']
+    status_sub = data['status_sub']
     data_from = data['from']
     order_time = data['order_time']
     steamid = data['steam_id']
@@ -142,10 +144,10 @@ def insert_main_buydata():
 
     sql = (f"INSERT INTO buy "
         f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price,"
-        f" seller_name, order_time, status, \"from\", steam_id, payment, trade_type, data_user)"
+        f" seller_name, order_time, status, status_sub, \"from\", steam_id, payment, trade_type, data_user)"
         f" VALUES "
         f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},"
-        f" '{seller_name}', '{order_time}', '{status}', '{data_from}',  '{steamid}', '{payment}', '{tradeType}', '{data_user}');")
+        f" '{seller_name}', '{order_time}', '{status}', '{status_sub}', '{data_from}',  '{steamid}', '{payment}', '{tradeType}', '{data_user}');")
     a_status = Date_base().insert(sql)
     
     if a_status is True:
