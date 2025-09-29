@@ -27,11 +27,6 @@ class SteamSellModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
-            'trade_type': {
-                'type': 'TEXT',
-                'not_null': False,
-                'default': None
-            },
             'price': {
                 'type': 'REAL',
                 'not_null': False,
@@ -72,18 +67,18 @@ class SteamSellModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
-            'exterior_wear': {
+            'float_range': {
                 'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
+            'weapon_float': {
+                'type': 'REAL',
                 'not_null': False,
                 'default': None
             },
             'inspect_link': {
                 'type': 'TEXT',
-                'not_null': False,
-                'default': None
-            },
-            'created_at': {
-                'type': 'DATETIME',
                 'not_null': False,
                 'default': None
             },

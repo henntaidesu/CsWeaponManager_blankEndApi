@@ -24,9 +24,7 @@ def insertNewData():
             buy_record = SteamBuyModel()
             buy_record.set_field('ID', data.get('ID'))
             buy_record.set_field('asset_id', data.get('asset_id'))
-            buy_record.set_field('trade_type', '+')
             buy_record.set_field('price', data.get('price'))
-            buy_record.set_field('price_original', data.get('price_original'))
             buy_record.set_field('trade_date', data.get('trade_date'))
             buy_record.set_field('listing_date', data.get('listing_date'))
             buy_record.set_field('game_name', data.get('game_name'))
@@ -35,7 +33,6 @@ def insertNewData():
             buy_record.set_field('item_name', data.get('item_name'))
             buy_record.set_field('exterior_wear', data.get('exterior_wear'))
             buy_record.set_field('inspect_link', data.get('inspect_link'))
-            buy_record.set_field('created_at', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             buy_record.set_field('data_user', data_user)
             
             saved = buy_record.save()
@@ -46,7 +43,6 @@ def insertNewData():
             sell_record = SteamSellModel()
             sell_record.set_field('ID', data.get('ID'))
             sell_record.set_field('asset_id', data.get('asset_id'))
-            sell_record.set_field('trade_type', '-')
             sell_record.set_field('price', data.get('price'))
             sell_record.set_field('price_original', data.get('price_original'))
             sell_record.set_field('trade_date', data.get('trade_date'))
@@ -57,9 +53,7 @@ def insertNewData():
             sell_record.set_field('item_name', data.get('item_name'))
             sell_record.set_field('exterior_wear', data.get('exterior_wear'))
             sell_record.set_field('inspect_link', data.get('inspect_link'))
-            sell_record.set_field('created_at', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             sell_record.set_field('data_user', data_user)
-            
             saved = sell_record.save()
             operation_type = '销售'
         else:
