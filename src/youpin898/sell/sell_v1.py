@@ -1,199 +1,329 @@
 from flask import jsonify, request, Blueprint
 from src.log import Log
 from src.execution_db import Date_base
+from src.db_manager.yyyp.yyyp_sell import YyypSellModel
+from src.db_manager.index.sell import SellModel
 import requests
 
 youpin898SellV1 = Blueprint('youpin898SellV1/', __name__)
 
 @youpin898SellV1.route('/getWeaponNotEndStatusList/<data_user>', methods=['get'])
 def getWeaponNotEndStatusList(data_user):
-    sql = f"SELECT ID FROM yyyp_sell WHERE status not in ('已完成', '已取消') AND data_user = '{data_user}';"
-    flag, data = Date_base().select(sql)
-    return jsonify(data), 200
+    try:
+        records = YyypSellModel.find_all(
+            "status NOT IN ('已完成', '已取消') AND data_user = ?", 
+            (data_user,)
+        )
+        data = [[record.ID] for record in records]
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"查询未完成状态列表失败: {e}")
+        return jsonify([]), 500
 
 @youpin898SellV1.route('/updateSellData', methods=['post'])
 def updateSellData():
-    data = request.get_json()
-    weapon_ID = data['ID']
-    weapon_status = data['weapon_status']
-    sql = (f"UPDATE yyyp_sell SET status = '{weapon_status}' WHERE ID = '{weapon_ID}';")
-    a_status = Date_base().update(sql)
-    sql = (f"UPDATE sell SET status = '{weapon_status}' WHERE ID LIKE '{weapon_ID}%' AND \"from\" = 'yyyp';")
-    Date_base().update(sql)
-    if a_status is True:
-        update_status = "更新成功"
-        return update_status, 200
-    elif a_status == '重复数据':
-        update_status = '重复数据'
-        return update_status, 200
-    else:
-        update_status = '更新失败'
-        return update_status, 500
+    try:
+        data = request.get_json()
+        weapon_ID = data['ID']
+        weapon_status = data['weapon_status']
+        
+        # 更新yyyp_sell表
+        yyyp_record = YyypSellModel.find_by_id(weapon_ID)
+        if yyyp_record:
+            yyyp_record.status = weapon_status
+            yyyp_saved = yyyp_record.save()
+        else:
+            return jsonify({'success': False, 'error': '记录不存在'}), 404
+        
+        # 更新通用sell表
+        sell_records = SellModel.find_all("ID LIKE ? AND from = 'yyyp'", (f"{weapon_ID}%",))
+        for sell_record in sell_records:
+            sell_record.status = weapon_status
+            sell_record.save()
+        
+        if yyyp_saved:
+            return jsonify({'success': True, 'message': '更新成功'}), 200
+        else:
+            return jsonify({'success': False, 'error': '更新失败'}), 500
+            
+    except Exception as e:
+        print(f"更新销售数据失败: {e}")
+        return jsonify({'success': False, 'error': f'服务器错误: {str(e)}'}), 500
 
 
 @youpin898SellV1.route('/selectApexTime/<data_user>', methods=['get'])
 def selectApexTime(data_user):
-    sql = f"SELECT order_time FROM yyyp_sell WHERE data_user = '{data_user}' ORDER BY order_time DESC LIMIT 1"
-    print(sql)
-    flag, data = Date_base().select(sql)
-    data = str(data[0][0])
-    return jsonify(data), 200
+    try:
+        records = YyypSellModel.find_all(
+            "data_user = ? ORDER BY order_time DESC", 
+            (data_user,), 
+            limit=1
+        )
+        if records:
+            data = str(records[0].order_time)
+        else:
+            data = "0"
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"查询最新时间失败: {e}")
+        return jsonify("0"), 500
 
 @youpin898SellV1.route('/getCount/<data_user>', methods=['get'])
 def getCount(data_user):
-    sql = f"SELECT COUNT(*) FROM yyyp_sell WHERE data_user = '{data_user}';"
-    flag, data = Date_base().select(sql)
     try:
-        data = str(data[0][0])
-    except TypeError:
-        data = 0
-    return data, 200
+        records = YyypSellModel.find_all("data_user = ?", (data_user,))
+        data = str(len(records))
+        return data, 200
+    except Exception as e:
+        print(f"查询记录数量失败: {e}")
+        return "0", 500
     
 
 @youpin898SellV1.route('/insert_webside_selldata', methods=['post'])
 def insert_webside_selldata():
-    data = request.get_json()
-    ID = data['ID']
-    weapon_name = data['weapon_name']
-    weapon_type = data['weapon_type']
-    item_name = data['item_name']
-    weapon_float = data['weapon_float']
-    float_range = data['float_range']
-    price = data['price']
-    price_original = data['price_original']
-    buyer_user_name = data['buyer_user_name']
-    status = data['status']
-    status_sub = data['status_sub']
-    data_from = data['from']
-    order_time = data['order_time']
-    steamid = data['steam_id']
-    data_user = data['data_user']
     try:
-        sell_number = int(data['sell_number'])
-    except TypeError:
-        sell_number = "None"
-    try:
-        err_number = int(data['err_number'])
-    except TypeError:
-        err_number = "None"
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '无效的JSON数据'}), 400
+            
+        ID = data['ID']
+        weapon_name = data['weapon_name']
+        weapon_type = data['weapon_type']
+        item_name = data['item_name']
+        weapon_float = data['weapon_float']
+        float_range = data['float_range']
+        price = data['price']
+        price_original = data['price_original']
+        buyer_user_name = data['buyer_user_name']
+        status = data['status']
+        status_sub = data['status_sub']
+        data_from = data['from']
+        order_time = data['order_time']
+        steamid = data['steam_id']
+        data_user = data['data_user']
+        try:
+            sell_number = int(data['sell_number'])
+        except (TypeError, ValueError):
+            sell_number = None
+        try:
+            err_number = int(data['err_number'])
+        except (TypeError, ValueError):
+            err_number = None
+        price_all = data['price_all']
 
-    price_all = data['price_all']
-
-
-    sql =  (f"INSERT INTO {data_from}_sell "
-            f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, price_original,"
-            f" buyer_name, status,  status_sub, \"from\", order_time, steam_id, sell_number, err_number, price_all, data_user)"
-            f" VALUES "
-            f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price},{price_original},"
-            f" '{buyer_user_name}', '{status}', '{status_sub}', '{data_from}', '{order_time}', '{steamid}',"
-            f" '{sell_number}', '{err_number}', {price_all}, '{data_user}');")
-    a_status = Date_base().insert(sql)
-
-    if sell_number == 1:
-        sql =  (f"INSERT INTO sell "
-                f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, price_original,"
-                f" buyer_name, status, status_sub, \"from\", order_time, steam_id,"
-                f" sell_number, err_number, price_all, data_user)"
-                f" VALUES "
-                f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price}, {price_original},"
-                f" '{buyer_user_name}',  '{status}', '{status_sub}', '{data_from}', '{order_time}', '{steamid}',"
-                f" '{sell_number}', '{err_number}', {price_all}, '{data_user}');")
-        Date_base().insert(sql)
+        # 插入到yyyp_sell表
+        print(f"插入悠悠有品销售记录到yyyp_sell表，ID: {ID}")
+        yyyp_sell_record = YyypSellModel()
+        yyyp_sell_record.ID = ID
+        yyyp_sell_record.weapon_name = weapon_name
+        yyyp_sell_record.weapon_type = weapon_type
+        yyyp_sell_record.item_name = item_name
+        yyyp_sell_record.weapon_float = weapon_float
+        yyyp_sell_record.float_range = float_range
+        yyyp_sell_record.price = price
+        yyyp_sell_record.price_original = price_original
+        yyyp_sell_record.buyer_name = buyer_user_name
+        yyyp_sell_record.status = status
+        yyyp_sell_record.status_sub = status_sub
+        yyyp_sell_record.order_time = order_time
+        yyyp_sell_record.steam_id = steamid
+        yyyp_sell_record.sell_number = sell_number
+        yyyp_sell_record.err_number = err_number
+        yyyp_sell_record.price_all = price_all
+        yyyp_sell_record.data_user = data_user
         
-    if a_status == '重复数据':
-        insert_status = "重复数据"
-    elif a_status:
-        insert_status = '写入成功'
-    else:
-        insert_status = '写入失败'
-    return insert_status, 200
+        yyyp_saved = yyyp_sell_record.save()
+        print(f"yyyp_sell表保存结果: {yyyp_saved}")
+
+        # 如果sell_number为1，也插入到通用sell表
+        sell_saved = True
+        if sell_number == 1:
+            print(f"插入销售记录到sell表，ID: {ID}")
+            sell_record = SellModel()
+            sell_record.ID = ID
+            sell_record.weapon_name = weapon_name
+            sell_record.weapon_type = weapon_type
+            sell_record.item_name = item_name
+            sell_record.weapon_float = weapon_float
+            sell_record.float_range = float_range
+            sell_record.price = price
+            sell_record.price_original = price_original
+            sell_record.buyer_name = buyer_user_name
+            sell_record.status = status
+            sell_record.status_sub = status_sub
+            sell_record.order_time = order_time
+            sell_record.steam_id = steamid
+            sell_record.sell_number = sell_number
+            sell_record.err_number = err_number
+            sell_record.price_all = price_all
+            sell_record.data_user = data_user
+            
+            sell_saved = sell_record.save()
+            print(f"sell表保存结果: {sell_saved}")
+
+        if yyyp_saved and sell_saved:
+            return jsonify({
+                'success': True,
+                'message': '悠悠有品销售数据插入成功',
+                'data': {
+                    'id': ID,
+                    'weapon_name': weapon_name,
+                    'item_name': item_name,
+                    'price': price,
+                    'price_original': price_original
+                }
+            }), 200
+        else:
+            return jsonify({'success': False, 'error': '数据插入失败'}), 500
+            
+    except Exception as e:
+        print(f"悠悠有品销售数据插入错误: {str(e)}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'服务器错误: {str(e)}'}), 500
 
 @youpin898SellV1.route('/insert_main_selldata', methods=['post'])
 def insert_main_selldata():
-    data = request.get_json()
-    ID = data['ID']
-    weapon_name = data['weapon_name']
-    weapon_type = data['weapon_type']
-    item_name = data['item_name']
-    weapon_float = data['weapon_float']
-    float_range = data['float_range']
-    price = data['price']
-    price_original = data['price_original']
-    buyer_user_name = data['buyer_user_name']
-    status = data['status']
-    status_sub = data['status_sub']
-    data_from = data['from']
-    order_time = data['order_time']
-    steamid = data['steam_id']
-    data_user = data['data_user']
     try:
-        sell_number = int(data['sell_number'])
-    except TypeError:
-        sell_number = "None"
-    try:
-        err_number = int(data['err_number'])
-    except TypeError:
-        err_number = "None"
-    price_all = data['price_all']
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '无效的JSON数据'}), 400
+            
+        ID = data['ID']
+        weapon_name = data['weapon_name']
+        weapon_type = data['weapon_type']
+        item_name = data['item_name']
+        weapon_float = data['weapon_float']
+        float_range = data['float_range']
+        price = data['price']
+        price_original = data['price_original']
+        buyer_user_name = data['buyer_user_name']
+        status = data['status']
+        status_sub = data['status_sub']
+        data_from = data['from']
+        order_time = data['order_time']
+        steamid = data['steam_id']
+        data_user = data['data_user']
 
-    sql =  (f"INSERT INTO sell "
-        f"(ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, price_original,"
-        f" buyer_name, status, status_sub, \"from\", order_time, steam_id,"
-        f" sell_number, err_number, price_all, data_user)"
-        f" VALUES "
-        f"('{ID}','{weapon_name}','{weapon_type}','{item_name}',{weapon_float},'{float_range}',{price}, {price_original},"
-        f" '{buyer_user_name}', '{status}', '{status_sub}', '{data_from}', '{order_time}', '{steamid}',"
-        f" '{sell_number}', '{err_number}', {price_all}, '{data_user}');")
-    a_status = Date_base().insert(sql)
-    
-    if a_status is True:
-        insert_status = "写入成功"
-    elif a_status == '重复数据':
-        insert_status = '重复数据'
-    else:
-        insert_status = '写入失败'
-    return insert_status, 200
+        # 插入到通用sell表
+        print(f"插入主销售记录到sell表，ID: {ID}")
+        sell_record = SellModel()
+        sell_record.ID = ID
+        sell_record.weapon_name = weapon_name
+        sell_record.weapon_type = weapon_type
+        sell_record.item_name = item_name
+        sell_record.weapon_float = weapon_float
+        sell_record.float_range = float_range
+        sell_record.price = price
+        sell_record.price_original = price_original
+        sell_record.buyer_name = buyer_user_name
+        sell_record.status = status
+        sell_record.status_sub = status_sub
+        sell_record.order_time = order_time
+        sell_record.steam_id = steamid
+        sell_record.data_user = data_user
+        
+        sell_saved = sell_record.save()
+        print(f"sell表保存结果: {sell_saved}")
+
+        if sell_saved:
+            return jsonify({
+                'success': True,
+                'message': '主销售数据插入成功',
+                'data': {
+                    'id': ID,
+                    'weapon_name': weapon_name,
+                    'item_name': item_name,
+                    'price': price,
+                    'price_original': price_original
+                }
+            }), 200
+        else:
+            return jsonify({'success': False, 'error': '数据插入失败'}), 500
+            
+    except Exception as e:
+        print(f"主销售数据插入错误: {str(e)}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'服务器错误: {str(e)}'}), 500
 
 @youpin898SellV1.route('/countSellNumber', methods=['get'])
 def countSellNumber():
-    sql = "SELECT COUNT(*) FROM sell"
-    result = Date_base().select(sql)
-    if result and len(result) == 2:
-        flag, data = result
-        if flag:
-            return jsonify({"count": data[0][0]}), 200
-    return "查询失败", 500
+    try:
+        records = SellModel.find_all()
+        count = len(records)
+        return jsonify({"count": count}), 200
+    except Exception as e:
+        print(f"查询销售数量失败: {e}")
+        return jsonify({"count": 0}), 500
 
 @youpin898SellV1.route('/getSellData/<int:min>/<int:max>', methods=['get'])
 def getSellData(min, max):
-    sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status FROM sell ORDER BY order_time DESC LIMIT {max} OFFSET {min};"
-    result = Date_base().select(sql)
-    if result and len(result) == 2:
-        flag, data = result
-        if flag:
-            return jsonify(data), 200
-    return "查询失败", 500
+    try:
+        records = SellModel.find_all(
+            "1=1 ORDER BY order_time DESC", 
+            (), 
+            limit=max, 
+            offset=min
+        )
+        data = []
+        for record in records:
+            data.append([
+                record.ID, record.item_name, record.weapon_name, 
+                record.weapon_type, record.weapon_float, record.float_range, 
+                record.price, getattr(record, 'from', ''), record.order_time, record.status
+            ])
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"查询销售数据失败: {e}")
+        return jsonify([]), 500
 
 @youpin898SellV1.route('/selectSellWeaponName/<itemName>', methods=['get'])
 def selectSellWeaponName(itemName):
-    sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status FROM sell WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%';"
-    result = Date_base().select(sql)
-    if result and len(result) == 2:
-        flag, data = result
-        if flag:
-            return jsonify(data), 200
-    return "查询失败", 500
+    try:
+        records = SellModel.find_all(
+            "item_name LIKE ? OR weapon_name LIKE ?", 
+            (f"%{itemName}%", f"%{itemName}%")
+        )
+        data = []
+        for record in records:
+            data.append([
+                record.ID, record.item_name, record.weapon_name, 
+                record.weapon_type, record.weapon_float, record.float_range, 
+                record.price, getattr(record, 'from', ''), record.order_time, record.status
+            ])
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"查询武器名称失败: {e}")
+        return jsonify([]), 500
 
 @youpin898SellV1.route('/getSellDataByStatus/<status>/<int:min>/<int:max>', methods=['get'])
 def getSellDataByStatus(status, min, max):
-    if status == 'all':
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status FROM sell ORDER BY order_time DESC LIMIT {max} OFFSET {min};"
-    else:
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status FROM sell WHERE status = '{status}' ORDER BY order_time DESC LIMIT {max} OFFSET {min};"
-    result = Date_base().select(sql)
-    if result and len(result) == 2:
-        flag, data = result
-        if flag:
-            return jsonify(data), 200
-    return "查询失败", 500
+    try:
+        if status == 'all':
+            records = SellModel.find_all(
+                "1=1 ORDER BY order_time DESC", 
+                (), 
+                limit=max, 
+                offset=min
+            )
+        else:
+            records = SellModel.find_all(
+                "status = ? ORDER BY order_time DESC", 
+                (status,), 
+                limit=max, 
+                offset=min
+            )
+        
+        data = []
+        for record in records:
+            data.append([
+                record.ID, record.item_name, record.weapon_name, 
+                record.weapon_type, record.weapon_float, record.float_range, 
+                record.price, getattr(record, 'from', ''), record.order_time, record.status
+            ])
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"查询状态销售数据失败: {e}")
+        return jsonify([]), 500
 

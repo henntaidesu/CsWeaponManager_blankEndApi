@@ -2,18 +2,20 @@ from flask import jsonify, request, Blueprint
 from src.log import Log
 from src.execution_db import Date_base
 from src.now_time import today
+from src.db_manager.yyyp.yyyp_lent import YyypLentModel
 import requests
 
 youpin898LentV1 = Blueprint('youpin898LentV1', __name__)
 
 @youpin898LentV1.route('/getNowLentingList', methods=['get'])
 def getNowLentingList():
-    sql = "SELECT ID FROM yyyp_lent WHERE status NOT IN ('完成')"
-    flag, data = Date_base().select(sql)
-    if flag:
+    try:
+        records = YyypLentModel.find_all("status NOT IN ('完成')")
+        data = [[record.ID] for record in records]
         return jsonify(data), 200
-    else:
-        return "查询失败", 500  
+    except Exception as e:
+        print(f"查询租借列表失败: {e}")
+        return jsonify([]), 500  
 
 @youpin898LentV1.route('/getTimeOutLent', methods=['get'])
 def getTimeOutLent():

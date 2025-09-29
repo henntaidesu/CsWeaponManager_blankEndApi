@@ -2,29 +2,41 @@ from flask import jsonify, request, Blueprint
 from src.log import Log
 from src.execution_db import Date_base
 from src.now_time import today
+from src.db_manager.index.buy import BuyModel
 import requests
 
 webBuyV1 = Blueprint('webBuyV1', __name__)
 
 @webBuyV1.route('/countBuyNumber', methods=['get'])
 def countBuyNumber():
-    sql = "SELECT COUNT(*) FROM buy"
-    result = Date_base().select(sql)
-    if result and len(result) == 2:
-        flag, data = result
-        if flag:
-            return jsonify({"count": data[0][0]}), 200
-    return "查询失败", 500
+    try:
+        records = BuyModel.find_all()
+        count = len(records)
+        return jsonify({"count": count}), 200
+    except Exception as e:
+        print(f"查询购买数量失败: {e}")
+        return jsonify({"count": 0}), 500
 
 @webBuyV1.route('/getBuyData/<int:min>/<int:max>', methods=['get'])
 def getNowBuyingList(min, max):
-    sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float,  float_range, price, \"from\", order_time, status FROM buy LIMIT {max} OFFSET {min};"
-    result = Date_base().select(sql)
-    if result and len(result) == 2:
-        flag, data = result
-        if flag:
-            return jsonify(data), 200
-    return "查询失败", 500
+    try:
+        records = BuyModel.find_all(
+            "1=1", 
+            (), 
+            limit=max, 
+            offset=min
+        )
+        data = []
+        for record in records:
+            data.append([
+                record.ID, record.item_name, record.weapon_name, 
+                record.weapon_type, record.weapon_float, record.float_range, 
+                record.price, getattr(record, 'from', ''), record.order_time, record.status
+            ])
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"查询购买数据失败: {e}")
+        return jsonify([]), 500
     
 
 @webBuyV1.route('/selectBuyWeaponName/<itemName>', methods=['get'])
