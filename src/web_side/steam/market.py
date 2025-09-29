@@ -8,15 +8,51 @@ steamMarketV1 = Blueprint('steamMarketV1', __name__)
 
 @steamMarketV1.route('/countData/<data_user>', methods=['get'])
 def countData(data_user):
-    pass
+    try:
+        # 使用对象化方式查询购买记录数量
+        buy_records = SteamBuyModel.find_all("data_user = ?", (data_user,))
+        buy_count = len(buy_records)
+        
+        # 使用对象化方式查询销售记录数量
+        sell_records = SteamSellModel.find_all("data_user = ?", (data_user,))
+        sell_count = len(sell_records)
+        
+        # 计算总数量
+        total_count = buy_count + sell_count
+        
+        print(f"Steam用户 {data_user} 的数据统计: 购买{buy_count}条, 销售{sell_count}条, 总计{total_count}条")
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "user_id": data_user,
+                "buy_count": buy_count,
+                "sell_count": sell_count,
+                ""
+                "count": total_count
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"查询Steam数据统计失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({
+            "success": False,
+            "error": f"查询失败: {str(e)}",
+            "data": {
+                "user_id": data_user,
+                "buy_count": 0,
+                "sell_count": 0,
+                "total_count": 0
+            }
+        }), 500
 
 @steamMarketV1.route('/insertNewData', methods=['POST'])
 def insertNewData():
     """插入新的Steam市场交易数据"""
     try:
         data = request.get_json()
-
-        
         if not data:
             print("错误：无效的JSON数据")
             return jsonify({'success': False, 'error': '无效的JSON数据'}), 400
@@ -24,12 +60,8 @@ def insertNewData():
         # 获取当前用户（这里需要根据实际认证机制获取）
         trade_type = data.get('trade_type')
         
-        # 根据trade_type决定插入到steam_buy表还是steam_sell表
-        print(f"交易类型: {trade_type}")
-        
         if trade_type == '+':
             # 购买记录 - 插入steam_buy表
-            print("插入购买记录到steam_buy表")
             buy_record = SteamBuyModel()
             buy_record.ID = data.get('ID')
             buy_record.asset_id = data.get('asset_id')
@@ -48,7 +80,6 @@ def insertNewData():
             
         elif trade_type == '-':
             # 销售记录 - 插入steam_sell表
-            print("插入销售记录到steam_sell表")
             sell_record = SteamSellModel()
             sell_record.ID = data.get('ID')
             sell_record.asset_id = data.get('asset_id')
@@ -60,21 +91,20 @@ def insertNewData():
             sell_record.weapon_type = data.get('weapon_type')
             sell_record.weapon_name = data.get('weapon_name')
             sell_record.item_name = data.get('item_name')
-            buy_record.float_range = data.get('exterior_wear')
+            sell_record.float_range = data.get('exterior_wear')
             sell_record.inspect_link = data.get('inspect_link')
             sell_record.data_user = data.get('steamId')
-            
-            print("开始保存销售记录...")
+        
             saved = sell_record.save()
-            print(f"销售记录保存结果: {saved}")
+            # print(f"销售记录保存结果: {saved}")
             operation_type = '销售'
         else:
             return jsonify({'success': False, 'error': '无效的交易类型'}), 400
         
         # 检查是否保存成功
-        print(f"最终保存结果: {saved}")
+        # print(f"最终保存结果: {saved}")
         if saved:
-            print(f"{operation_type}数据插入成功")
+            # print(f"{operation_type}数据插入成功")
             return jsonify({
                 'success': True,
                 'message': f'{operation_type}数据插入成功',

@@ -14,7 +14,6 @@ from src.web.DataSource_page import dataSourcePage
 from src.web_side.buff163.buy import buff163BuyV1
 from src.web_side.buff163.sell import buff163SellV1
 from src.web_side.steam.market import steamMarketV1
-# 导入新的数据库管理器
 from src.db_manager import init_database
 
 app = Flask(__name__)
@@ -22,7 +21,6 @@ CORS(app)
 
 def blankEndApi():
     # print("Blank End API Start")
-
     # 只在主进程中初始化数据库，避免Flask debug模式重复初始化
     if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
         # 初始化数据库
