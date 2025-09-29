@@ -6,6 +6,10 @@ from datetime import datetime
 
 steamMarketV1 = Blueprint('steamMarketV1', __name__)
 
+@steamMarketV1.route('/countData/<data_user>', methods=['get'])
+def countData(data_user):
+    pass
+
 @steamMarketV1.route('/insertNewData', methods=['POST'])
 def insertNewData():
     """插入新的Steam市场交易数据"""
@@ -36,7 +40,7 @@ def insertNewData():
             buy_record.weapon_type = data.get('weapon_type')
             buy_record.weapon_name = data.get('weapon_name')
             buy_record.item_name = data.get('item_name')
-            # 注意：buy表没有exterior_wear字段，跳过
+            buy_record.float_range = data.get('exterior_wear')
             buy_record.inspect_link = data.get('inspect_link')
             buy_record.data_user = data.get('steamId')
             saved = buy_record.save()
@@ -56,7 +60,7 @@ def insertNewData():
             sell_record.weapon_type = data.get('weapon_type')
             sell_record.weapon_name = data.get('weapon_name')
             sell_record.item_name = data.get('item_name')
-            # 注意：sell表没有exterior_wear字段，跳过
+            buy_record.float_range = data.get('exterior_wear')
             sell_record.inspect_link = data.get('inspect_link')
             sell_record.data_user = data.get('steamId')
             
