@@ -31,7 +31,8 @@ def getSellData(min, max):
             data.append([
                 record.ID, record.item_name, record.weapon_name, 
                 record.weapon_type, record.weapon_float, record.float_range, 
-                record.price, getattr(record, 'from', ''), record.order_time, record.status
+                record.price, getattr(record, 'from', ''), record.order_time, record.status,
+                record.status_sub
             ])
         return jsonify(data), 200
     except Exception as e:
@@ -41,7 +42,7 @@ def getSellData(min, max):
 
 @webSellV1.route('/selectSellWeaponName/<itemName>', methods=['get'])
 def selectSellWeaponName(itemName):
-    sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status FROM sell WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%';"
+    sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status, status_sub FROM sell WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%';"
     result = Date_base().select(sql)
     if result and len(result) == 2:
         flag, data = result
@@ -52,9 +53,9 @@ def selectSellWeaponName(itemName):
 @webSellV1.route('/getSellDataByStatus/<status>/<int:min>/<int:max>', methods=['get'])
 def getSellDataByStatus(status, min, max):
     if status == 'all':
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status FROM sell ORDER BY order_time DESC LIMIT {max} OFFSET {min};"
+        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status, status_sub FROM sell ORDER BY order_time DESC LIMIT {max} OFFSET {min};"
     else:
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status FROM sell WHERE status = '{status}' ORDER BY order_time DESC LIMIT {max} OFFSET {min};"
+        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, \"from\", order_time, status, status_sub FROM sell WHERE status = '{status}' ORDER BY order_time DESC LIMIT {max} OFFSET {min};"
     result = Date_base().select(sql)
     if result and len(result) == 2:
         flag, data = result
