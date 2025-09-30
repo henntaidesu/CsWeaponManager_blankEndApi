@@ -6,14 +6,27 @@ webLentPageV1 = Blueprint('webLentPageV1', __name__)
 
 @webLentPageV1.route('/getWeaponTypes', methods=['GET'])
 def getWeaponTypes():
-    """获取所有武器类型的唯一值"""
+    """获取所有武器类型的唯一值（按优先级排序）"""
     try:
         db = Date_base()
         sql = """
         SELECT DISTINCT weapon_type 
         FROM lease 
         WHERE weapon_type IS NOT NULL AND weapon_type != '' 
-        ORDER BY weapon_type
+        ORDER BY 
+            CASE weapon_type
+                WHEN '匕首' THEN 1
+                WHEN '手套' THEN 2
+                WHEN '手枪' THEN 3
+                WHEN '步枪' THEN 4
+                WHEN '狙击步枪' THEN 5
+                WHEN '微型冲锋枪' THEN 6
+                WHEN '霰弹枪' THEN 7
+                WHEN '机枪' THEN 8
+                WHEN '印花' THEN 9
+                ELSE 999
+            END,
+            weapon_type
         """
         success, result = db.select(sql)
         
@@ -36,16 +49,64 @@ def getWeaponTypes():
             'data': []
         }), 500
 
+@webLentPageV1.route('/getStatusList', methods=['GET'])
+def getStatusList():
+    """获取所有状态的唯一值"""
+    try:
+        db = Date_base()
+        sql = """
+        SELECT DISTINCT status 
+        FROM lease 
+        WHERE status IS NOT NULL AND status != '' 
+        ORDER BY 
+            CASE status
+                WHEN '租赁中' THEN 1
+                WHEN '已完成' THEN 2
+                WHEN '已取消' THEN 3
+                ELSE 999
+            END,
+            status
+        """
+        success, result = db.select(sql)
+        
+        status_list = []
+        if success and result:
+            for row in result:
+                if row[0]:  # 确保不是空值
+                    status_list.append(row[0])
+        
+        return jsonify({
+            'success': True,
+            'data': status_list
+        }), 200
+        
+    except Exception as e:
+        print(f"获取状态列表失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'data': []
+        }), 500
+
 @webLentPageV1.route('/getFloatRanges', methods=['GET'])
 def getFloatRanges():
-    """获取所有磨损等级的唯一值"""
+    """获取所有磨损等级的唯一值（优先显示主要磨损等级）"""
     try:
         db = Date_base()
         sql = """
         SELECT DISTINCT float_range 
         FROM lease 
         WHERE float_range IS NOT NULL AND float_range != '' 
-        ORDER BY float_range
+        ORDER BY 
+            CASE float_range
+                WHEN '崭新出厂' THEN 1
+                WHEN '略有磨损' THEN 2
+                WHEN '久经沙场' THEN 3
+                WHEN '破损不堪' THEN 4
+                WHEN '战痕累累' THEN 5
+                ELSE 999
+            END,
+            float_range
         """
         success, result = db.select(sql)
         

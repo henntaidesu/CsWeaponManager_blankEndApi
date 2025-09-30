@@ -6,14 +6,27 @@ webSellPageV1 = Blueprint('webSellPageV1', __name__)
 
 @webSellPageV1.route('/getWeaponTypes', methods=['GET'])
 def getWeaponTypes():
-    """获取所有武器类型的唯一值"""
+    """获取所有武器类型的唯一值（按优先级排序）"""
     try:
         db = Date_base()
         sql = """
         SELECT DISTINCT weapon_type 
         FROM sell 
         WHERE weapon_type IS NOT NULL AND weapon_type != '' 
-        ORDER BY weapon_type
+        ORDER BY 
+            CASE weapon_type
+                WHEN '匕首' THEN 1
+                WHEN '手套' THEN 2
+                WHEN '手枪' THEN 3
+                WHEN '步枪' THEN 4
+                WHEN '狙击步枪' THEN 5
+                WHEN '微型冲锋枪' THEN 6
+                WHEN '霰弹枪' THEN 7
+                WHEN '机枪' THEN 8
+                WHEN '印花' THEN 9
+                ELSE 999
+            END,
+            weapon_type
         """
         success, result = db.select(sql)
         
@@ -36,16 +49,64 @@ def getWeaponTypes():
             'data': []
         }), 500
 
+@webSellPageV1.route('/getStatusList', methods=['GET'])
+def getStatusList():
+    """获取所有状态的唯一值"""
+    try:
+        db = Date_base()
+        sql = """
+        SELECT DISTINCT status 
+        FROM sell 
+        WHERE status IS NOT NULL AND status != '' 
+        ORDER BY 
+            CASE status
+                WHEN '已完成' THEN 1
+                WHEN '待收货' THEN 2
+                WHEN '已取消' THEN 3
+                ELSE 999
+            END,
+            status
+        """
+        success, result = db.select(sql)
+        
+        status_list = []
+        if success and result:
+            for row in result:
+                if row[0]:  # 确保不是空值
+                    status_list.append(row[0])
+        
+        return jsonify({
+            'success': True,
+            'data': status_list
+        }), 200
+        
+    except Exception as e:
+        print(f"获取状态列表失败: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e),
+            'data': []
+        }), 500
+
 @webSellPageV1.route('/getFloatRanges', methods=['GET'])
 def getFloatRanges():
-    """获取所有磨损等级的唯一值"""
+    """获取所有磨损等级的唯一值（优先显示主要磨损等级）"""
     try:
         db = Date_base()
         sql = """
         SELECT DISTINCT float_range 
         FROM sell 
         WHERE float_range IS NOT NULL AND float_range != '' 
-        ORDER BY float_range
+        ORDER BY 
+            CASE float_range
+                WHEN '崭新出厂' THEN 1
+                WHEN '略有磨损' THEN 2
+                WHEN '久经沙场' THEN 3
+                WHEN '破损不堪' THEN 4
+                WHEN '战痕累累' THEN 5
+                ELSE 999
+            END,
+            float_range
         """
         success, result = db.select(sql)
         
@@ -114,7 +175,7 @@ def searchByTypeAndWear():
         data_sql = f"""
         SELECT ID, weapon_name, weapon_type, item_name, weapon_float, float_range, 
                price, price_original, buyer_name, status, status_sub, `from`, order_time, 
-               steam_id, sell_number, sell_of, st, sou, payment, trade_type, data_user
+               steam_id, st, sou
         FROM sell 
         WHERE {where_clause} 
         ORDER BY order_time DESC 
@@ -141,13 +202,8 @@ def searchByTypeAndWear():
                     row[11],  # from
                     row[12],  # order_time
                     row[13],  # steam_id
-                    row[14],  # sell_number
-                    row[15],  # sell_of
-                    row[16],  # st
-                    row[17],  # sou
-                    row[18],  # payment
-                    row[19],  # trade_type
-                    row[20]   # data_user
+                    row[14],  # st
+                    row[15],  # sou
                 ])
         
         return jsonify({
