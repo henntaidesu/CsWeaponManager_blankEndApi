@@ -62,38 +62,22 @@ def getCount(data_user):
 def updateBuyData():
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': '无效的JSON数据'}), 400
-            
-        weapon_ID = data.get('ID')
-        weapon_status = data.get('weapon_status')
-        weapon_status_sub = data.get('weapon_status_sub')
-        
-        if not weapon_ID or not weapon_status:
-            return jsonify({'success': False, 'error': '缺少必需参数ID或weapon_status'}), 400
+        weapon_ID = data['ID']
+        weapon_status = data['weapon_status']
         
         # 更新yyyp_buy表
-        yyyp_record = YyypBuyModel.find_by_id(ID=weapon_ID)
+        yyyp_record = YyypBuyModel.find_by_id(weapon_ID)
         if yyyp_record:
             yyyp_record.status = weapon_status
-            if weapon_status_sub is not None:
-                yyyp_record.status_sub = weapon_status_sub
             yyyp_saved = yyyp_record.save()
-            print(f"更新yyyp_buy表成功: ID={weapon_ID}, status={weapon_status}, status_sub={weapon_status_sub}")
         else:
-            print(f"yyyp_buy表中未找到记录: ID={weapon_ID}")
-            return jsonify({'success': False, 'error': 'yyyp_buy表中记录不存在'}), 404
+            return "记录不存在", 404
         
         # 更新通用buy表
-        buy_records = BuyModel.find_all("ID LIKE ? AND \"from\" = 'yyyp'", (f"{weapon_ID}%",))
-        buy_updated_count = 0
+        buy_records = BuyModel.find_all("ID LIKE ? AND from = 'yyyp'", (f"{weapon_ID}%",))
         for buy_record in buy_records:
             buy_record.status = weapon_status
-            if weapon_status_sub is not None:
-                buy_record.status_sub = weapon_status_sub
             buy_record.save()
-            buy_updated_count += 1
-        print(f"更新通用buy表成功: 共更新{buy_updated_count}条记录")
         
         if yyyp_saved:
             return jsonify({'success': True, 'message': '更新成功'}), 200
@@ -131,7 +115,6 @@ def insert_webside_buydata():
             buy_number = int(data['buy_number'])
         except (TypeError, ValueError):
             buy_number = None
-        # 这些字段在主表已取消，但yyyp分表仍需要
         try:
             err_number = int(data['err_number'])
         except (TypeError, ValueError):
@@ -251,7 +234,6 @@ def insert_main_buydata():
         buy_record.payment = payment
         buy_record.trade_type = tradeType
         buy_record.data_user = data_user
-        setattr(buy_record, 'from', data_from)
         
         buy_saved = buy_record.save()
         print(f"buy表保存结果: {buy_saved}")
