@@ -101,6 +101,17 @@ def insert_webside_selldata():
         order_time = data['order_time']
         steamid = data['steam_id']
         data_user = data['data_user']
+        
+        # 处理weapon_float字符串'NULL'转换为None
+        if weapon_float == 'NULL':
+            weapon_float = None
+        elif weapon_float is not None:
+            try:
+                weapon_float = float(weapon_float)
+            except (ValueError, TypeError):
+                weapon_float = None
+        
+        # 这些字段在主表已取消，但yyyp分表仍需要
         try:
             sell_number = int(data['sell_number'])
         except (TypeError, ValueError):
@@ -136,9 +147,9 @@ def insert_webside_selldata():
         yyyp_saved = yyyp_sell_record.save()
         print(f"yyyp_sell表保存结果: {yyyp_saved}")
 
-        # 如果sell_number为1，也插入到通用sell表
+        # 始终插入到通用sell表
         sell_saved = True
-        if sell_number == 1:
+        if True:  # 移除sell_number判断，始终插入
             print(f"插入销售记录到sell表，ID: {ID}")
             sell_record = SellModel()
             sell_record.ID = ID
@@ -154,11 +165,9 @@ def insert_webside_selldata():
             sell_record.status_sub = status_sub
             sell_record.order_time = order_time
             sell_record.steam_id = steamid
-            sell_record.sell_number = sell_number
-            sell_record.err_number = err_number
-            sell_record.price_all = price_all
             sell_record.data_user = data_user
             setattr(sell_record, 'from', 'yyyp')
+            
             sell_saved = sell_record.save()
             print(f"sell表保存结果: {sell_saved}")
 
@@ -205,6 +214,15 @@ def insert_main_selldata():
         order_time = data['order_time']
         steamid = data['steam_id']
         data_user = data['data_user']
+        
+        # 处理weapon_float字符串'NULL'转换为None
+        if weapon_float == 'NULL':
+            weapon_float = None
+        elif weapon_float is not None:
+            try:
+                weapon_float = float(weapon_float)
+            except (ValueError, TypeError):
+                weapon_float = None
 
         # 插入到通用sell表
         print(f"插入主销售记录到sell表，ID: {ID}")
@@ -223,6 +241,7 @@ def insert_main_selldata():
         sell_record.order_time = order_time
         sell_record.steam_id = steamid
         sell_record.data_user = data_user
+        setattr(sell_record, 'from', data_from)
         
         sell_saved = sell_record.save()
         print(f"sell表保存结果: {sell_saved}")

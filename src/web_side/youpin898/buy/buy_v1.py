@@ -115,6 +115,7 @@ def insert_webside_buydata():
             buy_number = int(data['buy_number'])
         except (TypeError, ValueError):
             buy_number = None
+        # 这些字段在主表已取消，但yyyp分表仍需要
         try:
             err_number = int(data['err_number'])
         except (TypeError, ValueError):
@@ -234,6 +235,7 @@ def insert_main_buydata():
         buy_record.payment = payment
         buy_record.trade_type = tradeType
         buy_record.data_user = data_user
+        setattr(buy_record, 'from', data_from)
         
         buy_saved = buy_record.save()
         print(f"buy表保存结果: {buy_saved}")

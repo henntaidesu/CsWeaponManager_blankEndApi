@@ -97,21 +97,21 @@ class SellModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
-            'sell_number': {
-                'type': 'INTEGER',
-                'not_null': False,
-                'default': None
-            },
-            'err_number': {
-                'type': 'INTEGER',
-                'not_null': False,
-                'default': None
-            },
-            'price_all': {
-                'type': 'REAL',
-                'not_null': False,
-                'default': None
-            },
+            # 'sell_number': {
+            #     'type': 'INTEGER',
+            #     'not_null': False,
+            #     'default': None
+            # },
+            # 'err_number': {
+            #     'type': 'INTEGER',
+            #     'not_null': False,
+            #     'default': None
+            # },
+            # 'price_all': {
+            #     'type': 'REAL',
+            #     'not_null': False,
+            #     'default': None
+            # },
             'data_user': {
                 'type': 'TEXT',
                 'not_null': False,

@@ -87,11 +87,11 @@ class BuyModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
-            'err_number': {
-                'type': 'INTEGER',
-                'not_null': False,
-                'default': None
-            },
+            # 'err_number': {
+            #     'type': 'INTEGER',
+            #     'not_null': False,
+            #     'default': None
+            # },
             'sell_of': {
                 'type': 'TEXT',
                 'not_null': False,
