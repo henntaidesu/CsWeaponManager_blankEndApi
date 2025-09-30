@@ -24,22 +24,38 @@ def getWeaponNotEndStatusList(data_user):
 def updateSellData():
     try:
         data = request.get_json()
-        weapon_ID = data['ID']
-        weapon_status = data['weapon_status']
+        if not data:
+            return jsonify({'success': False, 'error': '无效的JSON数据'}), 400
+            
+        weapon_ID = data.get('ID')
+        weapon_status = data.get('weapon_status')
+        weapon_status_sub = data.get('weapon_status_sub')
+        
+        if not weapon_ID or not weapon_status:
+            return jsonify({'success': False, 'error': '缺少必需参数ID或weapon_status'}), 400
         
         # 更新yyyp_sell表
-        yyyp_record = YyypSellModel.find_by_id(weapon_ID)
+        yyyp_record = YyypSellModel.find_by_id(ID=weapon_ID)
         if yyyp_record:
             yyyp_record.status = weapon_status
+            if weapon_status_sub is not None:
+                yyyp_record.status_sub = weapon_status_sub
             yyyp_saved = yyyp_record.save()
+            print(f"更新yyyp_sell表成功: ID={weapon_ID}, status={weapon_status}, status_sub={weapon_status_sub}")
         else:
-            return jsonify({'success': False, 'error': '记录不存在'}), 404
+            print(f"yyyp_sell表中未找到记录: ID={weapon_ID}")
+            return jsonify({'success': False, 'error': 'yyyp_sell表中记录不存在'}), 404
         
         # 更新通用sell表
-        sell_records = SellModel.find_all("ID LIKE ? AND from = 'yyyp'", (f"{weapon_ID}%",))
+        sell_records = SellModel.find_all("ID LIKE ? AND \"from\" = 'yyyp'", (f"{weapon_ID}%",))
+        sell_updated_count = 0
         for sell_record in sell_records:
             sell_record.status = weapon_status
+            if weapon_status_sub is not None:
+                sell_record.status_sub = weapon_status_sub
             sell_record.save()
+            sell_updated_count += 1
+        print(f"更新通用sell表成功: 共更新{sell_updated_count}条记录")
         
         if yyyp_saved:
             return jsonify({'success': True, 'message': '更新成功'}), 200
