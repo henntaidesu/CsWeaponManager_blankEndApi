@@ -131,6 +131,7 @@ def insert_webside_selldata():
         yyyp_sell_record.err_number = err_number
         yyyp_sell_record.price_all = price_all
         yyyp_sell_record.data_user = data_user
+        setattr(yyyp_sell_record, 'from', 'yyyp')
         
         yyyp_saved = yyyp_sell_record.save()
         print(f"yyyp_sell表保存结果: {yyyp_saved}")
@@ -157,7 +158,7 @@ def insert_webside_selldata():
             sell_record.err_number = err_number
             sell_record.price_all = price_all
             sell_record.data_user = data_user
-            
+            setattr(sell_record, 'from', 'yyyp')
             sell_saved = sell_record.save()
             print(f"sell表保存结果: {sell_saved}")
 

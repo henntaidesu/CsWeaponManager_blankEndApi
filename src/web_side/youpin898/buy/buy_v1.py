@@ -144,7 +144,7 @@ def insert_webside_buydata():
         yyyp_buy_record.payment = payment
         yyyp_buy_record.trade_type = tradeType
         yyyp_buy_record.data_user = data_user
-        
+        setattr(yyyp_buy_record, 'from', 'yyyp')
         yyyp_saved = yyyp_buy_record.save()
         print(f"yyyp_buy表保存结果: {yyyp_saved}")
         
@@ -168,7 +168,7 @@ def insert_webside_buydata():
             buy_record.payment = payment
             buy_record.trade_type = tradeType
             buy_record.data_user = data_user
-            
+            setattr(buy_record, 'from', 'yyyp')
             buy_saved = buy_record.save()
             print(f"buy表保存结果: {buy_saved}")
 

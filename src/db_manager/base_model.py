@@ -21,6 +21,9 @@ class BaseModel(ABC):
         # 设置字段值
         for field_name, field_def in self.get_fields().items():
             value = kwargs.get(field_name, field_def.get('default'))
+            # 处理空字符串，将其转换为 None
+            if isinstance(value, str) and value.strip() == '':
+                value = None
             self._data[field_name] = value
             self._original_data[field_name] = value
     
@@ -52,6 +55,9 @@ class BaseModel(ABC):
         if name.startswith('_') or name in ['db']:
             super().__setattr__(name, value)
         elif hasattr(self, '_data') and name in self.get_fields():
+            # 处理空字符串，将其转换为 None
+            if isinstance(value, str) and value.strip() == '':
+                value = None
             self._data[name] = value
         else:
             super().__setattr__(name, value)
@@ -76,7 +82,7 @@ class BaseModel(ABC):
         where_conditions = []
         params = []
         for key in primary_keys:
-            where_conditions.append(f"{key} = ?")
+            where_conditions.append(f"[{key}] = ?")
             params.append(self._data[key])
         
         sql = f"DELETE FROM {self.get_table_name()} WHERE {' AND '.join(where_conditions)}"
@@ -103,7 +109,7 @@ class BaseModel(ABC):
         where_conditions = []
         params = []
         for key in primary_keys:
-            where_conditions.append(f"{key} = ?")
+            where_conditions.append(f"[{key}] = ?")
             params.append(self._data[key])
         
         sql = f"SELECT 1 FROM {self.get_table_name()} WHERE {' AND '.join(where_conditions)} LIMIT 1"
@@ -121,12 +127,15 @@ class BaseModel(ABC):
         params = []
         
         for field_name, value in self._data.items():
-            if value is not None:
+            # 处理 None 和空字符串，将它们都转换为 None（数据库中的 NULL）
+            if value is not None and (not isinstance(value, str) or value.strip() != ''):
                 fields.append(field_name)
                 placeholders.append('?')
                 params.append(value)
         
-        sql = f"INSERT INTO {self.get_table_name()} ({', '.join(fields)}) VALUES ({', '.join(placeholders)})"
+        # 对字段名进行转义以处理保留关键字
+        escaped_fields = [f'[{field}]' for field in fields]
+        sql = f"INSERT INTO {self.get_table_name()} ({', '.join(escaped_fields)}) VALUES ({', '.join(placeholders)})"
         
         try:
             self.db.execute_insert(sql, tuple(params))
@@ -149,8 +158,13 @@ class BaseModel(ABC):
         
         for field_name, value in self._data.items():
             if field_name not in primary_keys and value != self._original_data.get(field_name):
-                changed_fields.append(f"{field_name} = ?")
-                params.append(value)
+                # 对字段名进行转义以处理保留关键字
+                changed_fields.append(f"[{field_name}] = ?")
+                # 处理空字符串，将其转换为 None（数据库中的 NULL）
+                if isinstance(value, str) and value.strip() == '':
+                    params.append(None)
+                else:
+                    params.append(value)
         
         if not changed_fields:
             return True  # 没有更改
@@ -158,7 +172,7 @@ class BaseModel(ABC):
         # 添加WHERE条件
         where_conditions = []
         for key in primary_keys:
-            where_conditions.append(f"{key} = ?")
+            where_conditions.append(f"[{key}] = ?")
             params.append(self._original_data[key])
         
         sql = f"UPDATE {self.get_table_name()} SET {', '.join(changed_fields)} WHERE {' AND '.join(where_conditions)}"
@@ -196,7 +210,7 @@ class BaseModel(ABC):
         for key in primary_keys:
             if key not in primary_key_values:
                 return None
-            where_conditions.append(f"{key} = ?")
+            where_conditions.append(f"[{key}] = ?")
             params.append(primary_key_values[key])
         
         sql = f"SELECT * FROM {cls.get_table_name()} WHERE {' AND '.join(where_conditions)} LIMIT 1"
@@ -254,7 +268,11 @@ class BaseModel(ABC):
         kwargs = {}
         for i, field_name in enumerate(fields):
             if i < len(row):
-                kwargs[field_name] = row[i]
+                value = row[i]
+                # 处理空字符串，将其转换为 None
+                if isinstance(value, str) and value.strip() == '':
+                    value = None
+                kwargs[field_name] = value
         
         instance = cls(**kwargs)
         instance._original_data = instance._data.copy()

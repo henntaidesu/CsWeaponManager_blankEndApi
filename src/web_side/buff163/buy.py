@@ -98,7 +98,7 @@ def insert_db():
         buff_buy_record.payment = pay_method_text
         buff_buy_record.data_user = data_user
         buff_buy_record.status_sub = state_sub
-        
+        setattr(buff_buy_record, 'from', 'buff')
         buff_saved = buff_buy_record.save()
         print(f"buff_buy表保存结果: {buff_saved}")
 
@@ -118,7 +118,7 @@ def insert_db():
         buy_record.payment = pay_method_text
         buy_record.data_user = data_user
         buy_record.status_sub = state_sub
-        
+        setattr(buy_record, 'from', 'buff')
         buy_saved = buy_record.save()
         print(f"buy表保存结果: {buy_saved}")
 

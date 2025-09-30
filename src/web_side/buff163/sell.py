@@ -97,7 +97,7 @@ def insert_db():
         buff_sell_record.order_time = created_at
         buff_sell_record.data_user = data_user
         buff_sell_record.status_sub = state_sub
-        
+        setattr(buff_sell_record, 'from', 'buff')
         buff_saved = buff_sell_record.save()
         print(f"buff_sell表保存结果: {buff_saved}")
 
@@ -117,7 +117,7 @@ def insert_db():
         sell_record.order_time = created_at
         sell_record.data_user = data_user
         sell_record.status_sub = state_sub
-        
+        setattr(sell_record, 'from', 'buff')
         sell_saved = sell_record.save()
         print(f"sell表保存结果: {sell_saved}")
 
