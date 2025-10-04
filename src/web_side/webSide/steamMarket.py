@@ -8,14 +8,73 @@ import requests
 
 webSteamMarketV1 = Blueprint('webSteamMarketV1', __name__)
 
+# ==================== Helper Functions ====================
+
+def get_distinct_game_names(model_class):
+    """获取不重复的游戏名称列表"""
+    try:
+        records = model_class.find_all("game_name IS NOT NULL")
+        game_names = list(set([record.game_name for record in records if record.game_name]))
+        game_names.sort()
+        # 将 Counter-Strike 2 排在第一位
+        if 'Counter-Strike 2' in game_names:
+            game_names.remove('Counter-Strike 2')
+            game_names.insert(0, 'Counter-Strike 2')
+        return game_names
+    except Exception as e:
+        print(f"获取游戏名称失败: {e}")
+        return []
+
+def calculate_stats(records):
+    """计算统计数据"""
+    if not records:
+        return {
+            "total_count": 0,
+            "total_amount": 0,
+            "avg_price": 0,
+            "completed_count": 0,
+            "cancelled_count": 0,
+            "pending_count": 0
+        }
+    
+    total_count = len(records)
+    total_amount = sum([record.price for record in records if record.price])
+    avg_price = total_amount / total_count if total_count > 0 else 0
+    
+    return {
+        "total_count": total_count,
+        "total_amount": round(float(total_amount), 2),
+        "avg_price": round(float(avg_price), 2),
+        "completed_count": total_count,  # Steam数据都是已完成
+        "cancelled_count": 0,
+        "pending_count": 0
+    }
+
+def record_to_array(record):
+    """将记录转换为数组格式"""
+    return [
+        record.ID, record.item_name, record.weapon_name,
+        record.weapon_type, record.weapon_float, record.float_range,
+        record.price, 'Steam', record.trade_date, '已完成', record.game_name
+    ]
+
 # ==================== Steam Buy APIs ====================
+
+@webSteamMarketV1.route('/getBuyGameNames', methods=['GET'])
+def getBuyGameNames():
+    """获取Steam购买记录中的所有游戏名称"""
+    try:
+        game_names = get_distinct_game_names(SteamBuyModel)
+        return jsonify(game_names), 200
+    except Exception as e:
+        print(f"获取购买游戏名称失败: {e}")
+        return jsonify([]), 500
 
 @webSteamMarketV1.route('/countSteamBuyNumber', methods=['GET'])
 def countSteamBuyNumber():
     """获取Steam购买记录总数"""
     try:
-        records = SteamBuyModel.find_all()
-        count = len(records)
+        count = SteamBuyModel.count()
         return jsonify({"count": count}), 200
     except Exception as e:
         print(f"查询Steam购买数量失败: {e}")
@@ -26,18 +85,12 @@ def getSteamBuyData(min, max):
     """获取Steam购买数据（分页）"""
     try:
         records = SteamBuyModel.find_all(
-            "1=1 ORDER BY trade_date DESC", 
-            (), 
-            limit=max, 
+            "1=1 ORDER BY trade_date DESC",
+            (),
+            limit=max,
             offset=min
         )
-        data = []
-        for record in records:
-            data.append([
-                record.ID, record.item_name, record.weapon_name, 
-                record.weapon_type, record.weapon_float, record.float_range, 
-                record.price, 'Steam', record.trade_date, '已完成', record.game_name
-            ])
+        data = [record_to_array(record) for record in records]
         return jsonify(data), 200
     except Exception as e:
         print(f"查询Steam购买数据失败: {e}")
@@ -47,15 +100,30 @@ def getSteamBuyData(min, max):
 def selectSteamBuyWeaponName(itemName):
     """根据武器名称搜索Steam购买记录"""
     try:
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name FROM steam_buy WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%' ORDER BY trade_date DESC;"
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
+        records = SteamBuyModel.find_all(
+            "item_name LIKE ? OR weapon_name LIKE ? ORDER BY trade_date DESC",
+            (f"%{itemName}%", f"%{itemName}%")
+        )
+        data = [record_to_array(record) for record in records]
+        return jsonify(data), 200
     except Exception as e:
         print(f"搜索Steam购买记录失败: {e}")
+        return jsonify([]), 500
+
+@webSteamMarketV1.route('/getSteamBuyDataByGameName/<gameName>/<int:min>/<int:max>', methods=['GET'])
+def getSteamBuyDataByGameName(gameName, min, max):
+    """根据游戏名称获取Steam购买数据（分页）"""
+    try:
+        records = SteamBuyModel.find_all(
+            "game_name = ? ORDER BY trade_date DESC",
+            (gameName,),
+            limit=max,
+            offset=min
+        )
+        data = [record_to_array(record) for record in records]
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"根据游戏名称查询Steam购买数据失败: {e}")
         return jsonify([]), 500
 
 @webSteamMarketV1.route('/getSteamBuyDataByStatus/<status>/<int:min>/<int:max>', methods=['GET'])
@@ -63,17 +131,17 @@ def getSteamBuyDataByStatus(status, min, max):
     """根据状态获取Steam购买数据（Steam数据都是已完成状态）"""
     try:
         if status == 'all' or status == '已完成':
-            sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name FROM steam_buy ORDER BY trade_date DESC LIMIT {max} OFFSET {min};"
+            records = SteamBuyModel.find_all(
+                "1=1 ORDER BY trade_date DESC",
+                (),
+                limit=max,
+                offset=min
+            )
+            data = [record_to_array(record) for record in records]
+            return jsonify(data), 200
         else:
             # 其他状态返回空数据，因为Steam数据都是已完成的
             return jsonify([]), 200
-        
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
     except Exception as e:
         print(f"根据状态查询Steam购买数据失败: {e}")
         return jsonify([]), 500
@@ -82,37 +150,9 @@ def getSteamBuyDataByStatus(status, min, max):
 def getSteamBuyStats():
     """获取Steam购买统计数据"""
     try:
-        sql = """
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_buy
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
+        records = SteamBuyModel.find_all()
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
     except Exception as e:
         print(f"获取Steam购买统计失败: {e}")
         return jsonify({
@@ -128,30 +168,14 @@ def getSteamBuyStats():
 def getSteamBuyStatsBySearch(itemName):
     """根据搜索关键词获取Steam购买统计"""
     try:
-        sql = f"""
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_buy 
-        WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%'
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
+        records = SteamBuyModel.find_all(
+            "item_name LIKE ? OR weapon_name LIKE ?",
+            (f"%{itemName}%", f"%{itemName}%")
+        )
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
+    except Exception as e:
+        print(f"根据搜索获取Steam购买统计失败: {e}")
         return jsonify({
             "total_count": 0,
             "total_amount": 0,
@@ -159,9 +183,17 @@ def getSteamBuyStatsBySearch(itemName):
             "completed_count": 0,
             "cancelled_count": 0,
             "pending_count": 0
-        }), 200
+        }), 500
+
+@webSteamMarketV1.route('/getSteamBuyStatsByGameName/<gameName>', methods=['GET'])
+def getSteamBuyStatsByGameName(gameName):
+    """根据游戏名称获取Steam购买统计"""
+    try:
+        records = SteamBuyModel.find_all("game_name = ?", (gameName,))
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
     except Exception as e:
-        print(f"根据搜索获取Steam购买统计失败: {e}")
+        print(f"根据游戏名称获取Steam购买统计失败: {e}")
         return jsonify({
             "total_count": 0,
             "total_amount": 0,
@@ -176,16 +208,9 @@ def getSteamBuyStatsByStatus(status):
     """根据状态获取Steam购买统计"""
     try:
         if status == 'all' or status == '已完成':
-            sql = """
-            SELECT 
-                COUNT(*) as total_count,
-                COALESCE(SUM(price), 0) as total_amount,
-                COALESCE(AVG(price), 0) as avg_price,
-                COUNT(*) as completed_count,
-                0 as cancelled_count,
-                0 as pending_count
-            FROM steam_buy
-            """
+            records = SteamBuyModel.find_all()
+            stats = calculate_stats(records)
+            return jsonify(stats), 200
         else:
             # 其他状态返回0统计
             return jsonify({
@@ -196,28 +221,6 @@ def getSteamBuyStatsByStatus(status):
                 "cancelled_count": 0,
                 "pending_count": 0
             }), 200
-        
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
     except Exception as e:
         print(f"根据状态获取Steam购买统计失败: {e}")
         return jsonify({
@@ -233,18 +236,12 @@ def getSteamBuyStatsByStatus(status):
 def searchSteamBuyByTimeRange(startDate, endDate):
     """根据时间范围搜索Steam购买记录"""
     try:
-        sql = f"""
-        SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name 
-        FROM steam_buy 
-        WHERE DATE(trade_date) BETWEEN '{startDate}' AND '{endDate}'
-        ORDER BY trade_date DESC
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
+        records = SteamBuyModel.find_all(
+            "DATE(trade_date) BETWEEN ? AND ? ORDER BY trade_date DESC",
+            (startDate, endDate)
+        )
+        data = [record_to_array(record) for record in records]
+        return jsonify(data), 200
     except Exception as e:
         print(f"根据时间范围搜索Steam购买记录失败: {e}")
         return jsonify([]), 500
@@ -253,38 +250,12 @@ def searchSteamBuyByTimeRange(startDate, endDate):
 def getSteamBuyStatsByTimeRange(startDate, endDate):
     """根据时间范围获取Steam购买统计"""
     try:
-        sql = f"""
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_buy 
-        WHERE DATE(trade_date) BETWEEN '{startDate}' AND '{endDate}'
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
+        records = SteamBuyModel.find_all(
+            "DATE(trade_date) BETWEEN ? AND ?",
+            (startDate, endDate)
+        )
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
     except Exception as e:
         print(f"根据时间范围获取Steam购买统计失败: {e}")
         return jsonify({
@@ -298,12 +269,21 @@ def getSteamBuyStatsByTimeRange(startDate, endDate):
 
 # ==================== Steam Sell APIs ====================
 
+@webSteamMarketV1.route('/getSellGameNames', methods=['GET'])
+def getSellGameNames():
+    """获取Steam销售记录中的所有游戏名称"""
+    try:
+        game_names = get_distinct_game_names(SteamSellModel)
+        return jsonify(game_names), 200
+    except Exception as e:
+        print(f"获取销售游戏名称失败: {e}")
+        return jsonify([]), 500
+
 @webSteamMarketV1.route('/countSteamSellNumber', methods=['GET'])
 def countSteamSellNumber():
     """获取Steam销售记录总数"""
     try:
-        records = SteamSellModel.find_all()
-        count = len(records)
+        count = SteamSellModel.count()
         return jsonify({"count": count}), 200
     except Exception as e:
         print(f"查询Steam销售数量失败: {e}")
@@ -314,18 +294,12 @@ def getSteamSellData(min, max):
     """获取Steam销售数据（分页）"""
     try:
         records = SteamSellModel.find_all(
-            "1=1 ORDER BY trade_date DESC", 
-            (), 
-            limit=max, 
+            "1=1 ORDER BY trade_date DESC",
+            (),
+            limit=max,
             offset=min
         )
-        data = []
-        for record in records:
-            data.append([
-                record.ID, record.item_name, record.weapon_name, 
-                record.weapon_type, record.weapon_float, record.float_range, 
-                record.price, 'Steam', record.trade_date, '已完成', record.game_name
-            ])
+        data = [record_to_array(record) for record in records]
         return jsonify(data), 200
     except Exception as e:
         print(f"查询Steam销售数据失败: {e}")
@@ -335,15 +309,30 @@ def getSteamSellData(min, max):
 def selectSteamSellWeaponName(itemName):
     """根据武器名称搜索Steam销售记录"""
     try:
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name FROM steam_sell WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%' ORDER BY trade_date DESC;"
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
+        records = SteamSellModel.find_all(
+            "item_name LIKE ? OR weapon_name LIKE ? ORDER BY trade_date DESC",
+            (f"%{itemName}%", f"%{itemName}%")
+        )
+        data = [record_to_array(record) for record in records]
+        return jsonify(data), 200
     except Exception as e:
         print(f"搜索Steam销售记录失败: {e}")
+        return jsonify([]), 500
+
+@webSteamMarketV1.route('/getSteamSellDataByGameName/<gameName>/<int:min>/<int:max>', methods=['GET'])
+def getSteamSellDataByGameName(gameName, min, max):
+    """根据游戏名称获取Steam销售数据（分页）"""
+    try:
+        records = SteamSellModel.find_all(
+            "game_name = ? ORDER BY trade_date DESC",
+            (gameName,),
+            limit=max,
+            offset=min
+        )
+        data = [record_to_array(record) for record in records]
+        return jsonify(data), 200
+    except Exception as e:
+        print(f"根据游戏名称查询Steam销售数据失败: {e}")
         return jsonify([]), 500
 
 @webSteamMarketV1.route('/getSteamSellDataByStatus/<status>/<int:min>/<int:max>', methods=['GET'])
@@ -351,17 +340,17 @@ def getSteamSellDataByStatus(status, min, max):
     """根据状态获取Steam销售数据（Steam数据都是已完成状态）"""
     try:
         if status == 'all' or status == '已完成':
-            sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name FROM steam_sell ORDER BY trade_date DESC LIMIT {max} OFFSET {min};"
+            records = SteamSellModel.find_all(
+                "1=1 ORDER BY trade_date DESC",
+                (),
+                limit=max,
+                offset=min
+            )
+            data = [record_to_array(record) for record in records]
+            return jsonify(data), 200
         else:
             # 其他状态返回空数据，因为Steam数据都是已完成的
             return jsonify([]), 200
-        
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
     except Exception as e:
         print(f"根据状态查询Steam销售数据失败: {e}")
         return jsonify([]), 500
@@ -370,37 +359,9 @@ def getSteamSellDataByStatus(status, min, max):
 def getSteamSellStats():
     """获取Steam销售统计数据"""
     try:
-        sql = """
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_sell
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
+        records = SteamSellModel.find_all()
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
     except Exception as e:
         print(f"获取Steam销售统计失败: {e}")
         return jsonify({
@@ -416,30 +377,14 @@ def getSteamSellStats():
 def getSteamSellStatsBySearch(itemName):
     """根据搜索关键词获取Steam销售统计"""
     try:
-        sql = f"""
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_sell 
-        WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%'
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
+        records = SteamSellModel.find_all(
+            "item_name LIKE ? OR weapon_name LIKE ?",
+            (f"%{itemName}%", f"%{itemName}%")
+        )
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
+    except Exception as e:
+        print(f"根据搜索获取Steam销售统计失败: {e}")
         return jsonify({
             "total_count": 0,
             "total_amount": 0,
@@ -447,9 +392,17 @@ def getSteamSellStatsBySearch(itemName):
             "completed_count": 0,
             "cancelled_count": 0,
             "pending_count": 0
-        }), 200
+        }), 500
+
+@webSteamMarketV1.route('/getSteamSellStatsByGameName/<gameName>', methods=['GET'])
+def getSteamSellStatsByGameName(gameName):
+    """根据游戏名称获取Steam销售统计"""
+    try:
+        records = SteamSellModel.find_all("game_name = ?", (gameName,))
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
     except Exception as e:
-        print(f"根据搜索获取Steam销售统计失败: {e}")
+        print(f"根据游戏名称获取Steam销售统计失败: {e}")
         return jsonify({
             "total_count": 0,
             "total_amount": 0,
@@ -464,16 +417,9 @@ def getSteamSellStatsByStatus(status):
     """根据状态获取Steam销售统计"""
     try:
         if status == 'all' or status == '已完成':
-            sql = """
-            SELECT 
-                COUNT(*) as total_count,
-                COALESCE(SUM(price), 0) as total_amount,
-                COALESCE(AVG(price), 0) as avg_price,
-                COUNT(*) as completed_count,
-                0 as cancelled_count,
-                0 as pending_count
-            FROM steam_sell
-            """
+            records = SteamSellModel.find_all()
+            stats = calculate_stats(records)
+            return jsonify(stats), 200
         else:
             # 其他状态返回0统计
             return jsonify({
@@ -484,28 +430,6 @@ def getSteamSellStatsByStatus(status):
                 "cancelled_count": 0,
                 "pending_count": 0
             }), 200
-        
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
     except Exception as e:
         print(f"根据状态获取Steam销售统计失败: {e}")
         return jsonify({
@@ -521,18 +445,12 @@ def getSteamSellStatsByStatus(status):
 def searchSteamSellByTimeRange(startDate, endDate):
     """根据时间范围搜索Steam销售记录"""
     try:
-        sql = f"""
-        SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name 
-        FROM steam_sell 
-        WHERE DATE(trade_date) BETWEEN '{startDate}' AND '{endDate}'
-        ORDER BY trade_date DESC
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
+        records = SteamSellModel.find_all(
+            "DATE(trade_date) BETWEEN ? AND ? ORDER BY trade_date DESC",
+            (startDate, endDate)
+        )
+        data = [record_to_array(record) for record in records]
+        return jsonify(data), 200
     except Exception as e:
         print(f"根据时间范围搜索Steam销售记录失败: {e}")
         return jsonify([]), 500
@@ -541,38 +459,12 @@ def searchSteamSellByTimeRange(startDate, endDate):
 def getSteamSellStatsByTimeRange(startDate, endDate):
     """根据时间范围获取Steam销售统计"""
     try:
-        sql = f"""
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_sell 
-        WHERE DATE(trade_date) BETWEEN '{startDate}' AND '{endDate}'
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
+        records = SteamSellModel.find_all(
+            "DATE(trade_date) BETWEEN ? AND ?",
+            (startDate, endDate)
+        )
+        stats = calculate_stats(records)
+        return jsonify(stats), 200
     except Exception as e:
         print(f"根据时间范围获取Steam销售统计失败: {e}")
         return jsonify({
@@ -591,47 +483,29 @@ def getSteamMarketStats():
     """获取Steam市场综合统计数据（购买+销售）"""
     try:
         # 获取购买统计
-        buy_sql = """
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price
-        FROM steam_buy
-        """
+        buy_records = SteamBuyModel.find_all()
+        buy_count = len(buy_records)
+        buy_total = sum([record.price for record in buy_records if record.price])
+        buy_avg = buy_total / buy_count if buy_count > 0 else 0
         
         # 获取销售统计
-        sell_sql = """
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price
-        FROM steam_sell
-        """
-        
-        buy_result = Date_base().select(buy_sql)
-        sell_result = Date_base().select(sell_sql)
-        
-        buy_stats = [0, 0, 0]
-        sell_stats = [0, 0, 0]
-        
-        if buy_result and len(buy_result) == 2 and buy_result[0] and len(buy_result[1]) > 0:
-            buy_stats = buy_result[1][0]
-        
-        if sell_result and len(sell_result) == 2 and sell_result[0] and len(sell_result[1]) > 0:
-            sell_stats = sell_result[1][0]
+        sell_records = SteamSellModel.find_all()
+        sell_count = len(sell_records)
+        sell_total = sum([record.price for record in sell_records if record.price])
+        sell_avg = sell_total / sell_count if sell_count > 0 else 0
         
         # 计算净收益
-        net_profit = float(sell_stats[1]) - float(buy_stats[1])
+        net_profit = sell_total - buy_total
         
         return jsonify({
-            "buy_count": buy_stats[0],
-            "buy_total": round(float(buy_stats[1]), 2),
-            "buy_avg": round(float(buy_stats[2]), 2),
-            "sell_count": sell_stats[0],
-            "sell_total": round(float(sell_stats[1]), 2),
-            "sell_avg": round(float(sell_stats[2]), 2),
-            "net_profit": round(net_profit, 2),
-            "total_transactions": buy_stats[0] + sell_stats[0]
+            "buy_count": buy_count,
+            "buy_total": round(float(buy_total), 2),
+            "buy_avg": round(float(buy_avg), 2),
+            "sell_count": sell_count,
+            "sell_total": round(float(sell_total), 2),
+            "sell_avg": round(float(sell_avg), 2),
+            "net_profit": round(float(net_profit), 2),
+            "total_transactions": buy_count + sell_count
         }), 200
     except Exception as e:
         print(f"获取Steam市场综合统计失败: {e}")
