@@ -33,6 +33,30 @@ def ApexTimeUrl(user_id):
         print(f"查询最新订单时间失败: {e}")
         return jsonify({"last_order_time": None}), 500
 
+@buff163SellV1.route('/getLatestData/<user_id>', methods=['GET'])
+def getLatestData(user_id):
+    """获取指定用户的最新一条销售记录（ID和订单时间）"""
+    try:
+        records = BuffSellModel.find_all(
+            "data_user = ? ORDER BY created_at DESC", 
+            (user_id,), 
+            limit=1
+        )
+        
+        if records and len(records) > 0:
+            latest_record = records[0]
+            return jsonify({
+                "ID": latest_record.ID,
+                "order_time": latest_record.order_time
+            }), 200
+        else:
+            return jsonify({"ID": None, "order_time": None}), 200
+    except Exception as e:
+        print(f"获取最新销售数据失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({"ID": None, "order_time": None}), 500
+
 @buff163SellV1.route('/updateOrderStatus', methods=['post'])
 def updateOrderStatus():
     try:

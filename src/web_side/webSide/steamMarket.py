@@ -8,54 +8,6 @@ import requests
 
 webSteamMarketV1 = Blueprint('webSteamMarketV1', __name__)
 
-# ==================== Common APIs ====================
-
-@webSteamMarketV1.route('/getBuyGameNames', methods=['GET'])
-def getBuyGameNames():
-    """获取Steam购买记录中的游戏名称列表（去重）"""
-    try:
-        sql = """
-        SELECT DISTINCT game_name 
-        FROM steam_buy 
-        WHERE game_name IS NOT NULL AND game_name != ''
-        ORDER BY 
-            CASE WHEN game_name = 'Counter-Strike 2' THEN 0 ELSE 1 END,
-            game_name
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                game_names = [row[0] for row in data]
-                return jsonify(game_names), 200
-        return jsonify([]), 200
-    except Exception as e:
-        print(f"获取Steam购买游戏名称列表失败: {e}")
-        return jsonify([]), 500
-
-@webSteamMarketV1.route('/getSellGameNames', methods=['GET'])
-def getSellGameNames():
-    """获取Steam销售记录中的游戏名称列表（去重）"""
-    try:
-        sql = """
-        SELECT DISTINCT game_name 
-        FROM steam_sell 
-        WHERE game_name IS NOT NULL AND game_name != ''
-        ORDER BY 
-            CASE WHEN game_name = 'Counter-Strike 2' THEN 0 ELSE 1 END,
-            game_name
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                game_names = [row[0] for row in data]
-                return jsonify(game_names), 200
-        return jsonify([]), 200
-    except Exception as e:
-        print(f"获取Steam销售游戏名称列表失败: {e}")
-        return jsonify([]), 500
-
 # ==================== Steam Buy APIs ====================
 
 @webSteamMarketV1.route('/countSteamBuyNumber', methods=['GET'])
@@ -124,22 +76,6 @@ def getSteamBuyDataByStatus(status, min, max):
         return jsonify([]), 200
     except Exception as e:
         print(f"根据状态查询Steam购买数据失败: {e}")
-        return jsonify([]), 500
-
-@webSteamMarketV1.route('/getSteamBuyDataByGameName/<gameName>/<int:min>/<int:max>', methods=['GET'])
-def getSteamBuyDataByGameName(gameName, min, max):
-    """根据游戏名称获取Steam购买数据（分页）"""
-    try:
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name FROM steam_buy WHERE game_name = '{gameName}' ORDER BY trade_date DESC LIMIT {max} OFFSET {min};"
-        
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
-    except Exception as e:
-        print(f"根据游戏名称查询Steam购买数据失败: {e}")
         return jsonify([]), 500
 
 @webSteamMarketV1.route('/getSteamBuyStats', methods=['GET'])
@@ -293,53 +229,6 @@ def getSteamBuyStatsByStatus(status):
             "pending_count": 0
         }), 500
 
-@webSteamMarketV1.route('/getSteamBuyStatsByGameName/<gameName>', methods=['GET'])
-def getSteamBuyStatsByGameName(gameName):
-    """根据游戏名称获取Steam购买统计"""
-    try:
-        sql = f"""
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_buy 
-        WHERE game_name = '{gameName}'
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
-    except Exception as e:
-        print(f"根据游戏名称获取Steam购买统计失败: {e}")
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 500
-
 @webSteamMarketV1.route('/searchSteamBuyByTimeRange/<startDate>/<endDate>', methods=['GET'])
 def searchSteamBuyByTimeRange(startDate, endDate):
     """根据时间范围搜索Steam购买记录"""
@@ -475,22 +364,6 @@ def getSteamSellDataByStatus(status, min, max):
         return jsonify([]), 200
     except Exception as e:
         print(f"根据状态查询Steam销售数据失败: {e}")
-        return jsonify([]), 500
-
-@webSteamMarketV1.route('/getSteamSellDataByGameName/<gameName>/<int:min>/<int:max>', methods=['GET'])
-def getSteamSellDataByGameName(gameName, min, max):
-    """根据游戏名称获取Steam销售数据（分页）"""
-    try:
-        sql = f"SELECT ID, item_name, weapon_name, weapon_type, weapon_float, float_range, price, 'Steam' as \"from\", trade_date, '已完成' as status, game_name FROM steam_sell WHERE game_name = '{gameName}' ORDER BY trade_date DESC LIMIT {max} OFFSET {min};"
-        
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag:
-                return jsonify(data), 200
-        return jsonify([]), 200
-    except Exception as e:
-        print(f"根据游戏名称查询Steam销售数据失败: {e}")
         return jsonify([]), 500
 
 @webSteamMarketV1.route('/getSteamSellStats', methods=['GET'])
@@ -635,53 +508,6 @@ def getSteamSellStatsByStatus(status):
         }), 200
     except Exception as e:
         print(f"根据状态获取Steam销售统计失败: {e}")
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 500
-
-@webSteamMarketV1.route('/getSteamSellStatsByGameName/<gameName>', methods=['GET'])
-def getSteamSellStatsByGameName(gameName):
-    """根据游戏名称获取Steam销售统计"""
-    try:
-        sql = f"""
-        SELECT 
-            COUNT(*) as total_count,
-            COALESCE(SUM(price), 0) as total_amount,
-            COALESCE(AVG(price), 0) as avg_price,
-            COUNT(*) as completed_count,
-            0 as cancelled_count,
-            0 as pending_count
-        FROM steam_sell 
-        WHERE game_name = '{gameName}'
-        """
-        result = Date_base().select(sql)
-        if result and len(result) == 2:
-            flag, data = result
-            if flag and len(data) > 0:
-                stats = data[0]
-                return jsonify({
-                    "total_count": stats[0],
-                    "total_amount": round(float(stats[1]), 2),
-                    "avg_price": round(float(stats[2]), 2),
-                    "completed_count": stats[3],
-                    "cancelled_count": stats[4],
-                    "pending_count": stats[5]
-                }), 200
-        return jsonify({
-            "total_count": 0,
-            "total_amount": 0,
-            "avg_price": 0,
-            "completed_count": 0,
-            "cancelled_count": 0,
-            "pending_count": 0
-        }), 200
-    except Exception as e:
-        print(f"根据游戏名称获取Steam销售统计失败: {e}")
         return jsonify({
             "total_count": 0,
             "total_amount": 0,

@@ -48,6 +48,70 @@ def countData(data_user):
             }
         }), 500
 
+@steamMarketV1.route('/getLatestData/<data_user>', methods=['GET'])
+def getLatestData(data_user):
+    """获取指定用户的最新一条交易记录（购买或销售）"""
+    try:
+        # 查询最新购买记录
+        buy_sql = """
+        SELECT ID, trade_date, created_at, 'buy' as type
+        FROM steam_buy 
+        WHERE data_user = ?
+        ORDER BY created_at DESC 
+        LIMIT 1
+        """
+        buy_result = Date_base().select(buy_sql, (data_user,))
+        
+        # 查询最新销售记录
+        sell_sql = """
+        SELECT ID, trade_date, created_at, 'sell' as type
+        FROM steam_sell 
+        WHERE data_user = ?
+        ORDER BY created_at DESC 
+        LIMIT 1
+        """
+        sell_result = Date_base().select(sell_sql, (data_user,))
+        
+        latest_buy = None
+        latest_sell = None
+        
+        if buy_result and len(buy_result) == 2 and buy_result[0] and len(buy_result[1]) > 0:
+            latest_buy = buy_result[1][0]
+        
+        if sell_result and len(sell_result) == 2 and sell_result[0] and len(sell_result[1]) > 0:
+            latest_sell = sell_result[1][0]
+        
+        # 比较两者的创建时间，返回最新的那条
+        if latest_buy and latest_sell:
+            if latest_buy[2] > latest_sell[2]:
+                return jsonify({
+                    "ID": latest_buy[0],
+                    "trade_date": latest_buy[1]
+                }), 200
+            else:
+                return jsonify({
+                    "ID": latest_sell[0],
+                    "trade_date": latest_sell[1]
+                }), 200
+        elif latest_buy:
+            return jsonify({
+                "ID": latest_buy[0],
+                "trade_date": latest_buy[1]
+            }), 200
+        elif latest_sell:
+            return jsonify({
+                "ID": latest_sell[0],
+                "trade_date": latest_sell[1]
+            }), 200
+        else:
+            return jsonify({"ID": None, "trade_date": None}), 200
+            
+    except Exception as e:
+        print(f"获取最新交易数据失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({"ID": None, "trade_date": None}), 500
+
 @steamMarketV1.route('/insertNewData', methods=['POST'])
 def insertNewData():
     """插入新的Steam市场交易数据"""
