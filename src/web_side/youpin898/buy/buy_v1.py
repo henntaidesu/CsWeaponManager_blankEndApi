@@ -234,7 +234,6 @@ def insert_main_buydata():
         buy_record.payment = payment
         buy_record.trade_type = tradeType
         buy_record.data_user = data_user
-        setattr(buy_record, 'from', data_from)
         
         buy_saved = buy_record.save()
         print(f"buy表保存结果: {buy_saved}")

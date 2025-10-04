@@ -11,7 +11,7 @@ from .database import DatabaseManager
 from .index import ConfigModel, FundsModel, BuyModel, SellModel, LeaseModel
 from .yyyp import YyypBuyModel, YyypSellModel, YyypLentModel, YyypMessageboxModel
 from .buff import BuffBuyModel, BuffSellModel, BuffLentModel
-from .steam import SteamBuyModel, SteamSellModel
+from .steam import SteamBuyModel, SteamSellModel, SteamInventoryHistoryModel
 
 
 class DBManager:
@@ -45,6 +45,7 @@ class DBManager:
             # Steam表
             SteamBuyModel,
             SteamSellModel,
+            SteamInventoryHistoryModel,
         ]
     
     def initialize_database(self) -> bool:

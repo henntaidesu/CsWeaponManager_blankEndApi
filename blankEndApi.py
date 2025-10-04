@@ -14,6 +14,7 @@ from src.web_side.webSide.web.DataSource_page import dataSourcePage
 from src.web_side.buff163.buy import buff163BuyV1
 from src.web_side.buff163.sell import buff163SellV1
 from src.web_side.steam.market import steamMarketV1
+from src.web_side.steam.steam_inventory_history_api import steamInventoryHistoryV1
 from src.web_side.webSide.steamMarket import webSteamMarketV1
 from src.web_side.webSide.buy_page import webBuyPageV1
 from src.web_side.webSide.sell_page import webSellPageV1
@@ -48,6 +49,7 @@ def blankEndApi():
     app.register_blueprint(buff163BuyV1, url_prefix = '/buff163BuyV1')
     app.register_blueprint(buff163SellV1, url_prefix = '/buff163SellV1')
     app.register_blueprint(steamMarketV1, url_prefix = '/steamMarketV1')
+    app.register_blueprint(steamInventoryHistoryV1, url_prefix = '/steamInventoryHistoryV1')
     app.register_blueprint(webSteamMarketV1, url_prefix = '/webSteamMarketV1')
     app.register_blueprint(webBuyPageV1, url_prefix = '/webBuyPageV1')
     app.register_blueprint(webSellPageV1, url_prefix = '/webSellPageV1')
