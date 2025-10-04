@@ -21,7 +21,7 @@ def countBuyNumber():
 def getNowBuyingList(min, max):
     try:
         records = BuyModel.find_all(
-            "1=1", 
+            "1=1 ORDER BY order_time DESC", 
             (), 
             limit=max, 
             offset=min
