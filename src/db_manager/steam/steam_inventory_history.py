@@ -19,9 +19,21 @@ class SteamInventoryHistoryModel(BaseModel):
         return {
             'ID': {
                 'type': 'TEXT',
-                'primary_key': True,
-                'not_null': True,
+                'primary_key': False,
+                'not_null': None,
                 'comment': '记录唯一ID'
+            },
+            'instanceid': {
+                'type': 'TEXT',
+                'primary_key': False,
+                'not_null': None,
+                'comment': '饰品ID'
+            },
+            'classid': {
+                'type': 'TEXT',
+                'primary_key': False,
+                'not_null': None,
+                'comment': '饰品ID'
             },
             'order_time': {
                 'type': 'DATETIME',
