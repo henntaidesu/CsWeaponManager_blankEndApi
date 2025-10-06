@@ -28,7 +28,6 @@ def countData(data_user):
                 "user_id": data_user,
                 "buy_count": buy_count,
                 "sell_count": sell_count,
-                ""
                 "count": total_count
             }
         }), 200
@@ -108,6 +107,71 @@ def getLatestData(data_user):
             
     except Exception as e:
         print(f"获取最新交易数据失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({"ID": None, "trade_date": None}), 500
+
+
+@steamMarketV1.route('/getEarliestData/<data_user>', methods=['GET'])
+def getEarliestData(data_user):
+    """获取指定用户的最早一条交易记录（购买或销售）"""
+    try:
+        # 查询最早购买记录
+        buy_sql = """
+        SELECT ID, trade_date, created_at, 'buy' as type
+        FROM steam_buy 
+        WHERE data_user = ?
+        ORDER BY created_at ASC 
+        LIMIT 1
+        """
+        buy_result = Date_base().select(buy_sql, (data_user,))
+        
+        # 查询最早销售记录
+        sell_sql = """
+        SELECT ID, trade_date, created_at, 'sell' as type
+        FROM steam_sell 
+        WHERE data_user = ?
+        ORDER BY created_at ASC 
+        LIMIT 1
+        """
+        sell_result = Date_base().select(sell_sql, (data_user,))
+        
+        earliest_buy = None
+        earliest_sell = None
+        
+        if buy_result and len(buy_result) == 2 and buy_result[0] and len(buy_result[1]) > 0:
+            earliest_buy = buy_result[1][0]
+        
+        if sell_result and len(sell_result) == 2 and sell_result[0] and len(sell_result[1]) > 0:
+            earliest_sell = sell_result[1][0]
+        
+        # 比较两者的创建时间，返回最早的那条
+        if earliest_buy and earliest_sell:
+            if earliest_buy[2] < earliest_sell[2]:
+                return jsonify({
+                    "ID": earliest_buy[0],
+                    "trade_date": earliest_buy[1]
+                }), 200
+            else:
+                return jsonify({
+                    "ID": earliest_sell[0],
+                    "trade_date": earliest_sell[1]
+                }), 200
+        elif earliest_buy:
+            return jsonify({
+                "ID": earliest_buy[0],
+                "trade_date": earliest_buy[1]
+            }), 200
+        elif earliest_sell:
+            return jsonify({
+                "ID": earliest_sell[0],
+                "trade_date": earliest_sell[1]
+            }), 200
+        else:
+            return jsonify({"ID": None, "trade_date": None}), 200
+            
+    except Exception as e:
+        print(f"获取最早交易数据失败: {e}")
         import traceback
         print(f"详细错误信息: {traceback.format_exc()}")
         return jsonify({"ID": None, "trade_date": None}), 500
