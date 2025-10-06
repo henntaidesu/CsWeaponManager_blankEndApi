@@ -8,6 +8,88 @@ import traceback
 steamInventoryHistoryV1 = Blueprint('steamInventoryHistoryV1', __name__)
 
 
+@steamInventoryHistoryV1.route('/selectMaxTime/<steam_ID>', methods=['GET'])
+def selectMaxTime(steam_ID):
+    """查询指定用户的最新一条历史记录"""
+    try:
+        if not steam_ID:
+            return jsonify({'success': False, 'error': '缺少steam_ID参数'}), 400
+        
+        # 使用模型查询最新的一条记录
+        records = SteamInventoryHistoryIndexModel.find_all(
+            "data_user = ? ORDER BY order_time DESC",
+            (steam_ID,),
+            limit=1
+        )
+        
+        if records and len(records) > 0:
+            record = records[0]
+            return jsonify({
+                'success': True,
+                'data': {
+                    'ID': record.ID,
+                    'order_time': record.order_time,
+                    'trade_type': record.trade_type,
+                    'data_user': record.data_user
+                }
+            }), 200
+        else:
+            return jsonify({
+                'success': True,
+                'data': None,
+                'message': '未找到相关记录'
+            }), 200
+            
+    except Exception as e:
+        print(f"[错误] 查询最新记录失败")
+        print(f"  Steam ID: {steam_ID}")
+        print(f"  异常类型: {type(e).__name__}")
+        print(f"  异常信息: {str(e)}")
+        print(f"  堆栈跟踪:\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'查询失败: {str(e)}'}), 500
+
+
+@steamInventoryHistoryV1.route('/selectMinTime/<steam_ID>', methods=['GET'])
+def selectMinTime(steam_ID):
+    """查询指定用户的最早一条历史记录"""
+    try:
+        if not steam_ID:
+            return jsonify({'success': False, 'error': '缺少steam_ID参数'}), 400
+        
+        # 使用模型查询最早的一条记录
+        records = SteamInventoryHistoryIndexModel.find_all(
+            "data_user = ? ORDER BY order_time ASC",
+            (steam_ID,),
+            limit=1
+        )
+        
+        if records and len(records) > 0:
+            record = records[0]
+            return jsonify({
+                'success': True,
+                'data': {
+                    'ID': record.ID,
+                    'order_time': record.order_time,
+                    'trade_type': record.trade_type,
+                    'data_user': record.data_user
+                }
+            }), 200
+        else:
+            return jsonify({
+                'success': True,
+                'data': None,
+                'message': '未找到相关记录'
+            }), 200
+            
+    except Exception as e:
+        print(f"[错误] 查询最早记录失败")
+        print(f"  Steam ID: {steam_ID}")
+        print(f"  异常类型: {type(e).__name__}")
+        print(f"  异常信息: {str(e)}")
+        print(f"  堆栈跟踪:\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'查询失败: {str(e)}'}), 500
+
+
 @steamInventoryHistoryV1.route('/insert_inventory_history', methods=['POST'])
 def insert_inventory_history():
     """插入Steam库存历史记录 - 使用索引表防止重复"""
