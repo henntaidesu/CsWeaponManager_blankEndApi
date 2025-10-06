@@ -54,7 +54,7 @@ def getLentStats():
     sql = """
     SELECT 
         COUNT(*) as total_count,
-        COALESCE(SUM(price), 0) as total_amount,
+        COALESCE(SUM(price * total_Lease_Days), 0) as total_amount,
         COALESCE(AVG(price), 0) as avg_price,
         COALESCE(SUM(total_Lease_Days), 0) as total_lease_days,
         COALESCE(AVG(total_Lease_Days), 0) as avg_lease_days,
@@ -101,7 +101,7 @@ def getLentStatsByTimeRange(start_date, end_date):
     sql = f"""
     SELECT 
         COUNT(*) as total_count,
-        COALESCE(SUM(price), 0) as total_amount,
+        COALESCE(SUM(price * total_Lease_Days), 0) as total_amount,
         COALESCE(AVG(price), 0) as avg_price,
         COALESCE(SUM(total_Lease_Days), 0) as total_lease_days,
         COALESCE(AVG(total_Lease_Days), 0) as avg_lease_days,
