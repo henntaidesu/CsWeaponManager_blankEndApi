@@ -49,67 +49,108 @@ def countData(data_user):
 
 @steamMarketV1.route('/getLatestData/<data_user>', methods=['GET'])
 def getLatestData(data_user):
-    """获取指定用户的最新一条交易记录（购买或销售）"""
+    """获取指定用户的最新一条交易记录（购买或销售）并返回总数统计"""
     try:
+        # 查询购买记录总数
+        buy_count_sql = f"""
+        SELECT COUNT(*) FROM steam_buy WHERE data_user = '{data_user}'
+        """
+        buy_count_result = Date_base().select(buy_count_sql)
+        buy_count = buy_count_result[1][0][0] if buy_count_result and buy_count_result[0] else 0
+
+        # 查询销售记录总数
+        sell_count_sql = f"""
+        SELECT COUNT(*) FROM steam_sell WHERE data_user = '{data_user}'
+        """
+        sell_count_result = Date_base().select(sell_count_sql)
+        sell_count = sell_count_result[1][0][0] if sell_count_result and sell_count_result[0] else 0
+
+        # 计算总数
+        total_count = buy_count + sell_count
+
         # 查询最新购买记录
-        buy_sql = """
-        SELECT ID, trade_date, created_at, 'buy' as type
-        FROM steam_buy 
-        WHERE data_user = ?
-        ORDER BY created_at DESC 
+        buy_sql = f"""
+        SELECT ID, trade_date, 'buy' as type
+        FROM steam_buy
+        WHERE data_user = '{data_user}'
+        ORDER BY trade_date DESC
         LIMIT 1
         """
-        buy_result = Date_base().select(buy_sql, (data_user,))
-        
+        buy_result = Date_base().select(buy_sql)
+
         # 查询最新销售记录
-        sell_sql = """
-        SELECT ID, trade_date, created_at, 'sell' as type
-        FROM steam_sell 
-        WHERE data_user = ?
-        ORDER BY created_at DESC 
+        sell_sql = f"""
+        SELECT ID, trade_date, 'sell' as type
+        FROM steam_sell
+        WHERE data_user = '{data_user}'
+        ORDER BY trade_date DESC
         LIMIT 1
         """
-        sell_result = Date_base().select(sell_sql, (data_user,))
-        
+        sell_result = Date_base().select(sell_sql)
+
         latest_buy = None
         latest_sell = None
-        
+
         if buy_result and len(buy_result) == 2 and buy_result[0] and len(buy_result[1]) > 0:
             latest_buy = buy_result[1][0]
-        
+
         if sell_result and len(sell_result) == 2 and sell_result[0] and len(sell_result[1]) > 0:
             latest_sell = sell_result[1][0]
-        
-        # 比较两者的创建时间，返回最新的那条
+
+        # 比较两者的交易时间，返回最新的那条
         if latest_buy and latest_sell:
-            if latest_buy[2] > latest_sell[2]:
+            if latest_buy[1] > latest_sell[1]:
                 return jsonify({
                     "ID": latest_buy[0],
-                    "trade_date": latest_buy[1]
+                    "trade_date": latest_buy[1],
+                    "buy_count": buy_count,
+                    "sell_count": sell_count,
+                    "total_count": total_count
                 }), 200
             else:
                 return jsonify({
                     "ID": latest_sell[0],
-                    "trade_date": latest_sell[1]
+                    "trade_date": latest_sell[1],
+                    "buy_count": buy_count,
+                    "sell_count": sell_count,
+                    "total_count": total_count
                 }), 200
         elif latest_buy:
             return jsonify({
                 "ID": latest_buy[0],
-                "trade_date": latest_buy[1]
+                "trade_date": latest_buy[1],
+                "buy_count": buy_count,
+                "sell_count": sell_count,
+                "total_count": total_count
             }), 200
         elif latest_sell:
             return jsonify({
                 "ID": latest_sell[0],
-                "trade_date": latest_sell[1]
+                "trade_date": latest_sell[1],
+                "buy_count": buy_count,
+                "sell_count": sell_count,
+                "total_count": total_count
             }), 200
         else:
-            return jsonify({"ID": None, "trade_date": None}), 200
-            
+            return jsonify({
+                "ID": None,
+                "trade_date": None,
+                "buy_count": buy_count,
+                "sell_count": sell_count,
+                "total_count": total_count
+            }), 200
+
     except Exception as e:
         print(f"获取最新交易数据失败: {e}")
         import traceback
         print(f"详细错误信息: {traceback.format_exc()}")
-        return jsonify({"ID": None, "trade_date": None}), 500
+        return jsonify({
+            "ID": None,
+            "trade_date": None,
+            "buy_count": 0,
+            "sell_count": 0,
+            "total_count": 0
+        }), 500
 
 
 @steamMarketV1.route('/getEarliestData/<data_user>', methods=['GET'])
@@ -117,24 +158,24 @@ def getEarliestData(data_user):
     """获取指定用户的最早一条交易记录（购买或销售）"""
     try:
         # 查询最早购买记录
-        buy_sql = """
-        SELECT ID, trade_date, created_at, 'buy' as type
-        FROM steam_buy 
-        WHERE data_user = ?
-        ORDER BY created_at ASC 
+        buy_sql = f"""
+        SELECT ID, trade_date, 'buy' as type
+        FROM steam_buy
+        WHERE data_user = '{data_user}'
+        ORDER BY trade_date ASC
         LIMIT 1
         """
-        buy_result = Date_base().select(buy_sql, (data_user,))
-        
+        buy_result = Date_base().select(buy_sql)
+
         # 查询最早销售记录
-        sell_sql = """
-        SELECT ID, trade_date, created_at, 'sell' as type
-        FROM steam_sell 
-        WHERE data_user = ?
-        ORDER BY created_at ASC 
+        sell_sql = f"""
+        SELECT ID, trade_date, 'sell' as type
+        FROM steam_sell
+        WHERE data_user = '{data_user}'
+        ORDER BY trade_date ASC
         LIMIT 1
         """
-        sell_result = Date_base().select(sell_sql, (data_user,))
+        sell_result = Date_base().select(sell_sql)
         
         earliest_buy = None
         earliest_sell = None
@@ -145,9 +186,9 @@ def getEarliestData(data_user):
         if sell_result and len(sell_result) == 2 and sell_result[0] and len(sell_result[1]) > 0:
             earliest_sell = sell_result[1][0]
         
-        # 比较两者的创建时间，返回最早的那条
+        # 比较两者的交易时间，返回最早的那条
         if earliest_buy and earliest_sell:
-            if earliest_buy[2] < earliest_sell[2]:
+            if earliest_buy[1] < earliest_sell[1]:
                 return jsonify({
                     "ID": earliest_buy[0],
                     "trade_date": earliest_buy[1]
