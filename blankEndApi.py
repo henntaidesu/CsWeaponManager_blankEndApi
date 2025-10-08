@@ -21,6 +21,7 @@ from src.web_side.webSide.steamInventoryHistory import webSteamInventoryHistoryV
 from src.web_side.webSide.buy_page import webBuyPageV1
 from src.web_side.webSide.sell_page import webSellPageV1
 from src.web_side.webSide.lent_page import webLentPageV1
+from src.web_side.webSide.inventory import webInventoryV1
 from src.db_manager import init_database
 
 app = Flask(__name__)
@@ -55,6 +56,7 @@ def blankEndApi():
     app.register_blueprint(webBuyPageV1, url_prefix = '/webBuyPageV1')
     app.register_blueprint(webSellPageV1, url_prefix = '/webSellPageV1')
     app.register_blueprint(webLentPageV1, url_prefix = '/webLentPageV1')
+    app.register_blueprint(webInventoryV1, url_prefix = '/webInventoryV1')
     app.run(debug=True, port=9001, host='0.0.0.0')
 
 if __name__ == '__main__':

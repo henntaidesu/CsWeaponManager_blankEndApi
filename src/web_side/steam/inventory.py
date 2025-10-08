@@ -1,6 +1,5 @@
 from flask import jsonify, request, Blueprint
 from src.db_manager.steam.steam_inventory import SteamInventoryModel
-from datetime import datetime
 
 steamInventoryV1 = Blueprint('steamInventoryV1', __name__)
 
@@ -43,12 +42,10 @@ def insert_inventory():
                 break
         inventory_record.weapon_float = weapon_float
         
-        # 时间信息
-        inventory_record.order_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
         # 交易相关
-        inventory_record.trade_type = 'inventory'  # 标记为库存数据
-        inventory_record.trade_title = data.get('market_name') or data.get('name')
+        # remark 存储交易保护信息，如果没有则为NULL
+        trade_lock_info = data.get('trade_lock_info')
+        inventory_record.remark = trade_lock_info if trade_lock_info else None
         
         # 保存到数据库
         saved = inventory_record.save()
@@ -96,8 +93,7 @@ def get_inventory_by_user(data_user):
                 'weapon_type': record.weapon_type,
                 'weapon_float': record.weapon_float,
                 'float_range': record.float_range,
-                'trade_title': record.trade_title,
-                'order_time': record.order_time
+                'remark': record.remark
             })
         
         return jsonify({
@@ -138,5 +134,41 @@ def count_inventory(data_user):
         return jsonify({
             'success': False,
             'error': f'统计失败: {str(e)}'
+        }), 500
+
+
+@steamInventoryV1.route('/inventory/user/<data_user>', methods=['DELETE'])
+def delete_user_inventory(data_user):
+    """删除指定用户的所有库存记录"""
+    try:
+        # 先统计有多少条记录
+        count_before = SteamInventoryModel.count("data_user = ?", (data_user,))
+        
+        if count_before == 0:
+            return jsonify({
+                'success': True,
+                'message': '没有需要删除的记录',
+                'deleted_count': 0
+            }), 200
+        
+        # 使用SQL直接删除
+        from src.db_manager.database import DatabaseManager
+        db = DatabaseManager()
+        sql = f"DELETE FROM {SteamInventoryModel.get_table_name()} WHERE data_user = ?"
+        deleted_count = db.execute_update(sql, (data_user,))
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功删除 {deleted_count} 条库存记录',
+            'deleted_count': deleted_count
+        }), 200
+        
+    except Exception as e:
+        print(f"删除库存失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'删除失败: {str(e)}'
         }), 500
 

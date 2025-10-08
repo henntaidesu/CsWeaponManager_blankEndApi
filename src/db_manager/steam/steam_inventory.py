@@ -35,12 +35,6 @@ class SteamInventoryModel(BaseModel):
                 'not_null': None,
                 'comment': '类ID'
             },
-            'order_time': {
-                'type': 'DATETIME',
-                'not_null': False,
-                'default': None,
-                'comment': '订单时间'
-            },
             'item_name': {
                 'type': 'TEXT',
                 'not_null': False,
@@ -71,11 +65,11 @@ class SteamInventoryModel(BaseModel):
                 'default': None,
                 'comment': '武器磨损值'
             },
-            'trade_type': {
+            'remark': {
                 'type': 'TEXT',
                 'not_null': False,
                 'default': None,
-                'comment': '交易类型'
+                'comment': '备注信息（交易保护等）'
             },
             'data_user': {
                 'type': 'TEXT',
@@ -89,20 +83,16 @@ class SteamInventoryModel(BaseModel):
     def get_indexes(cls) -> List[Dict[str, Any]]:
         return [
             {
-                'name': 'steam_inventoryhistory_idx_order_time_copy1',
-                'columns': ['order_time']
+                'name': 'steam_inventory_idx_remark',
+                'columns': ['remark']
             },
             {
-                'name': 'steam_inventoryhistory_idx_trade_type_copy1',
-                'columns': ['trade_type']
-            },
-            {
-                'name': 'steam_inventoryhistory_idx_appid_copy1',
-                'columns': ['appid']
-            },
-            {
-                'name': 'steam_inventoryhistory_idx_weapon_type_copy1',
+                'name': 'steam_inventory_idx_weapon_type',
                 'columns': ['weapon_type']
+            },
+            {
+                'name': 'steam_inventory_idx_data_user',
+                'columns': ['data_user']
             }
         ]
 
