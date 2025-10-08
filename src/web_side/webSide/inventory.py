@@ -403,3 +403,72 @@ def update_buy_price(steam_id, assetid):
             'error': f'更新失败: {str(e)}'
         }), 500
 
+
+@webInventoryV1.route('/steam_config/<steam_id>', methods=['GET'])
+def get_steam_config(steam_id):
+    """根据Steam ID获取Steam配置（cookie等）"""
+    try:
+        print(f"[DEBUG] 查询Steam配置，Steam ID: {steam_id}")
+        from src.db_manager.database import DatabaseManager
+        db = DatabaseManager()
+        
+        # 查询config表，获取key1='steam'且key2='config'的记录
+        sql = """
+        SELECT value FROM config 
+        WHERE key1 = 'steam' AND key2 = 'config'
+        """
+        
+        results = db.execute_query(sql)
+        print(f"[DEBUG] 查询到 {len(results) if results else 0} 条Steam配置记录")
+        
+        if not results:
+            print("[ERROR] 未找到任何Steam配置")
+            return jsonify({
+                'success': False,
+                'error': '未找到Steam配置'
+            }), 404
+        
+        # 遍历所有steam配置，找到匹配的steamID
+        import json
+        for idx, row in enumerate(results):
+            value = row[0]
+            print(f"[DEBUG] 处理第 {idx + 1} 条配置...")
+            if value:
+                try:
+                    config_data = json.loads(value)
+                    config_steam_id = config_data.get('steamID')
+                    print(f"[DEBUG] 配置中的Steam ID: {config_steam_id}")
+                    
+                    # 检查steamID是否匹配
+                    if config_steam_id == steam_id:
+                        print(f"[INFO] 找到匹配的Steam配置")
+                        # Steam配置中使用 'cookies' 字段，不是 'cookie'
+                        cookie = config_data.get('cookies', '') or config_data.get('cookie', '')
+                        print(f"[DEBUG] Cookie长度: {len(cookie)}")
+                        return jsonify({
+                            'success': True,
+                            'data': {
+                                'steamId': config_steam_id,
+                                'cookie': cookie,
+                                'dataName': config_data.get('dataName', ''),
+                                'status': config_data.get('status', '1')
+                            }
+                        }), 200
+                except json.JSONDecodeError as je:
+                    print(f"[ERROR] JSON解析失败: {str(je)}")
+                    continue
+        
+        print(f"[ERROR] 未找到Steam ID为 {steam_id} 的配置")
+        return jsonify({
+            'success': False,
+            'error': f'未找到Steam ID为 {steam_id} 的配置'
+        }), 404
+            
+    except Exception as e:
+        print(f"[ERROR] 获取Steam配置失败: {e}")
+        import traceback
+        print(f"[ERROR] 详细错误信息: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'查询失败: {str(e)}'
+        }), 500
