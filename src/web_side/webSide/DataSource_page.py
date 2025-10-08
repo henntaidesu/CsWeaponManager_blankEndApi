@@ -127,15 +127,6 @@ def get_datasources():
             
             datasources = list(datasource_groups.values())
             
-            # 调试日志：打印每个数据源的steamID
-            print(f"[DEBUG] ========== 返回 {len(datasources)} 个数据源 ==========")
-            for ds in datasources:
-                print(f"[DEBUG] 数据源: {ds.get('dataName')}, Type: {ds.get('type')}, SteamID: '{ds.get('steamID')}'")
-            
-            # 打印完整的返回数据
-            import json as json_lib
-            print(f"[DEBUG] 完整返回数据: {json_lib.dumps(datasources, ensure_ascii=False, indent=2)}")
-            
             return jsonify({
                 'success': True,
                 'data': datasources,
