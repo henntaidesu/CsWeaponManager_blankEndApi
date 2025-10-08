@@ -83,6 +83,18 @@ class SteamInventoryModel(BaseModel):
                 'default': None,
                 'comment': '购入价格'
             },
+            'yyyp_price': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None,
+                'comment': '购入价格'
+            },
+            'buff_price': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None,
+                'comment': '购入价格'
+            },
             'if_inventory': {
                 'type': 'TEXT',
                 'not_null': False,
