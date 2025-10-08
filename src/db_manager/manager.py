@@ -11,7 +11,7 @@ from .database import DatabaseManager
 from .index import ConfigModel, FundsModel, BuyModel, SellModel, LeaseModel
 from .yyyp import YyypBuyModel, YyypSellModel, YyypLentModel, YyypMessageboxModel
 from .buff import BuffBuyModel, BuffSellModel, BuffLentModel
-from .steam import SteamBuyModel, SteamSellModel, SteamInventoryHistoryModel, SteamInventoryHistoryIndexModel
+from .steam import SteamBuyModel, SteamSellModel, SteamInventoryHistoryModel, SteamInventoryHistoryIndexModel, SteamInventoryModel
 
 
 class DBManager:
@@ -47,6 +47,7 @@ class DBManager:
             SteamSellModel,
             SteamInventoryHistoryModel,
             SteamInventoryHistoryIndexModel,
+            SteamInventoryModel,
         ]
     
     def initialize_database(self) -> bool:
@@ -55,26 +56,29 @@ class DBManager:
 
         success_count = 0
         total_count = len(self.models)
+        failed_tables = []
 
         for model_class in self.models:
             try:
                 table_name = model_class.get_table_name()
-                print(f"检查表: {table_name}")
 
                 if model_class.ensure_table_exists():
-                    print(f"✅ 表 {table_name} 检查完成")
                     success_count += 1
                 else:
+                    failed_tables.append(table_name)
                     print(f"❌ 表 {table_name} 检查失败")
 
             except Exception as e:
-                print(f"❌ 表 {model_class.get_table_name()} 初始化异常: {e}")
+                table_name = model_class.get_table_name()
+                failed_tables.append(table_name)
+                print(f"❌ 表 {table_name} 初始化异常: {e}")
 
-        print(f"数据库初始化完成: {success_count}/{total_count} 个表成功")
-
-        # 如果有失败的表，提供详细信息
-        if success_count < total_count:
-            print(f"有 {total_count - success_count} 个表初始化失败，请检查错误信息")
+        # 显示最终结果
+        if success_count == total_count:
+            print(f"✅ 数据库初始化成功: {success_count}/{total_count} 个表")
+        else:
+            print(f"⚠️  数据库初始化完成: {success_count}/{total_count} 个表成功")
+            print(f"❌ 失败的表: {', '.join(failed_tables)}")
             return False
 
         return True

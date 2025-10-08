@@ -15,6 +15,7 @@ from src.web_side.buff163.buy import buff163BuyV1
 from src.web_side.buff163.sell import buff163SellV1
 from src.web_side.steam.market import steamMarketV1
 from src.web_side.steam.steam_inventory_history_api import steamInventoryHistoryV1
+from src.web_side.steam.inventory import steamInventoryV1
 from src.web_side.webSide.steamMarket import webSteamMarketV1
 from src.web_side.webSide.steamInventoryHistory import webSteamInventoryHistoryV1
 from src.web_side.webSide.buy_page import webBuyPageV1
@@ -30,11 +31,8 @@ def blankEndApi():
     # 只在主进程中初始化数据库，避免Flask debug模式重复初始化
     if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
         # 初始化数据库
-        print("正在初始化数据库...")
-        if init_database():
-            print("✅ 数据库初始化成功")
-        else:
-            print("❌ 数据库初始化失败")
+        if not init_database():
+            print("❌ 数据库初始化失败，程序退出")
             return
     
     app.register_blueprint(configV1, url_prefix = '/configV1')
@@ -51,6 +49,7 @@ def blankEndApi():
     app.register_blueprint(buff163SellV1, url_prefix = '/buff163SellV1')
     app.register_blueprint(steamMarketV1, url_prefix = '/steamMarketV1')
     app.register_blueprint(steamInventoryHistoryV1, url_prefix = '/steamInventoryHistoryV1')
+    app.register_blueprint(steamInventoryV1, url_prefix = '/api/v1/steam')
     app.register_blueprint(webSteamMarketV1, url_prefix = '/webSteamMarketV1')
     app.register_blueprint(webSteamInventoryHistoryV1, url_prefix = '/webSteamInventoryHistoryV1')
     app.register_blueprint(webBuyPageV1, url_prefix = '/webBuyPageV1')
