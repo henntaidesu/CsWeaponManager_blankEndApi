@@ -99,7 +99,7 @@ def get_inventory(steam_id):
         sql = f"""
         SELECT 
             si.assetid, si.instanceid, si.classid, si.item_name, si.weapon_name, si.float_range, 
-            si.weapon_type, si.weapon_float, si.remark, si.data_user, si.buy_price
+            si.weapon_type, si.weapon_float, si.remark, si.data_user, si.buy_price, si.yyyp_price, si.buff_price, si.order_time
         FROM {SteamInventoryModel.get_table_name()} si
         WHERE {where_clause.replace('data_user', 'si.data_user').replace('weapon_type', 'si.weapon_type').replace('float_range', 'si.float_range').replace('item_name', 'si.item_name').replace('weapon_name', 'si.weapon_name')}
         ORDER BY 
@@ -167,7 +167,10 @@ def get_inventory(steam_id):
                     'weapon_float': row[7],
                     'remark': row[8],
                     'data_user': row[9],
-                    'buy_price': buy_price
+                    'buy_price': buy_price,
+                    'yyyp_price': row[11] if len(row) > 11 else None,
+                    'buff_price': row[12] if len(row) > 12 else None,
+                    'order_time': row[13] if len(row) > 13 else None
                 }
                 records.append(record)
         
@@ -214,7 +217,10 @@ def get_grouped_inventory(steam_id):
             GROUP_CONCAT(si.assetid) as assetids,
             GROUP_CONCAT(si.weapon_float) as weapon_floats,
             GROUP_CONCAT(si.remark, '|||') as remarks,
-            GROUP_CONCAT(si.buy_price) as buy_prices
+            GROUP_CONCAT(si.buy_price) as buy_prices,
+            GROUP_CONCAT(si.yyyp_price) as yyyp_prices,
+            GROUP_CONCAT(si.buff_price) as buff_prices,
+            GROUP_CONCAT(si.order_time) as order_times
         FROM steam_inventory si
         WHERE si.data_user = ? AND si.if_inventory = '1'
         GROUP BY si.item_name, si.weapon_name, si.weapon_type, si.float_range
@@ -231,13 +237,16 @@ def get_grouped_inventory(steam_id):
         # 转换为字典列表
         grouped_list = []
         for row in results:
-            item_name, weapon_name, weapon_type, float_range, count, assetids, weapon_floats, remarks, buy_prices = row
+            item_name, weapon_name, weapon_type, float_range, count, assetids, weapon_floats, remarks, buy_prices, yyyp_prices, buff_prices, order_times = row
             
             # 分割字符串为列表
             assetid_list = assetids.split(',') if assetids else []
             float_list = weapon_floats.split(',') if weapon_floats else []
             remark_list = remarks.split('|||') if remarks else []
             price_list = buy_prices.split(',') if buy_prices else []
+            yyyp_price_list = yyyp_prices.split(',') if yyyp_prices else []
+            buff_price_list = buff_prices.split(',') if buff_prices else []
+            order_time_list = order_times.split(',') if order_times else []
             
             grouped_list.append({
                 'item_name': item_name,
@@ -248,7 +257,10 @@ def get_grouped_inventory(steam_id):
                 'assetids': assetid_list,
                 'weapon_floats': float_list,
                 'remarks': remark_list,
-                'buy_prices': price_list
+                'buy_prices': price_list,
+                'yyyp_prices': yyyp_price_list,
+                'buff_prices': buff_price_list,
+                'order_times': order_time_list
             })
         
         return jsonify({
@@ -347,13 +359,65 @@ def get_inventory_stats(steam_id):
                 'max_price': round(max_price, 2) if max_price else 0
             }
         
+        # 统计悠悠有品价格总和
+        yyyp_price_sql = """
+        SELECT 
+            COUNT(CASE WHEN CAST(yyyp_price AS REAL) > 0 THEN 1 END) as priced_count,
+            SUM(CAST(yyyp_price AS REAL)) as total_price,
+            AVG(CAST(yyyp_price AS REAL)) as avg_price
+        FROM steam_inventory
+        WHERE data_user = ? AND if_inventory = '1'
+        """
+        yyyp_price_result = db.execute_query(yyyp_price_sql, (steam_id,))
+        
+        yyyp_price_stats = {
+            'priced_count': 0,
+            'total_price': 0,
+            'avg_price': 0
+        }
+        
+        if yyyp_price_result and len(yyyp_price_result) > 0:
+            priced_count, total_price, avg_price = yyyp_price_result[0]
+            yyyp_price_stats = {
+                'priced_count': priced_count if priced_count else 0,
+                'total_price': round(total_price, 2) if total_price else 0,
+                'avg_price': round(avg_price, 2) if avg_price else 0
+            }
+        
+        # 统计BUFF价格总和
+        buff_price_sql = """
+        SELECT 
+            COUNT(CASE WHEN CAST(buff_price AS REAL) > 0 THEN 1 END) as priced_count,
+            SUM(CAST(buff_price AS REAL)) as total_price,
+            AVG(CAST(buff_price AS REAL)) as avg_price
+        FROM steam_inventory
+        WHERE data_user = ? AND if_inventory = '1'
+        """
+        buff_price_result = db.execute_query(buff_price_sql, (steam_id,))
+        
+        buff_price_stats = {
+            'priced_count': 0,
+            'total_price': 0,
+            'avg_price': 0
+        }
+        
+        if buff_price_result and len(buff_price_result) > 0:
+            priced_count, total_price, avg_price = buff_price_result[0]
+            buff_price_stats = {
+                'priced_count': priced_count if priced_count else 0,
+                'total_price': round(total_price, 2) if total_price else 0,
+                'avg_price': round(avg_price, 2) if avg_price else 0
+            }
+        
         return jsonify({
             'success': True,
             'data': {
                 'total_count': total_count,
                 'by_type': type_stats,
                 'by_wear': wear_stats,
-                'price_stats': price_stats
+                'price_stats': price_stats,
+                'yyyp_price_stats': yyyp_price_stats,
+                'buff_price_stats': buff_price_stats
             }
         }), 200
         
@@ -473,4 +537,96 @@ def get_steam_config(steam_id):
         return jsonify({
             'success': False,
             'error': f'查询失败: {str(e)}'
+        }), 500
+
+
+@webInventoryV1.route('/inventory/batch_update_yyyp_price', methods=['POST'])
+def batch_update_yyyp_price():
+    """批量更新悠悠有品价格"""
+    try:
+        # 获取请求数据
+        data = request.get_json()
+        
+        if not data or 'weapon_list' not in data:
+            return jsonify({
+                'success': False,
+                'error': '缺少必要参数 weapon_list'
+            }), 400
+        
+        weapon_list = data['weapon_list']
+        
+        if not isinstance(weapon_list, list):
+            return jsonify({
+                'success': False,
+                'error': 'weapon_list 必须是数组'
+            }), 400
+        
+        # 统计信息
+        success_count = 0
+        failed_count = 0
+        error_messages = []
+        
+        # 遍历列表，更新每个武器的价格
+        for weapon in weapon_list:
+            try:
+                # 获取必要字段
+                steam_asset_id = weapon.get('SteamAssetId')
+                asset_add_time = weapon.get('AssetAddTime')
+                show_mark_price = weapon.get('ShowMarkPrice')
+                
+                if not steam_asset_id:
+                    failed_count += 1
+                    error_messages.append(f"缺少 SteamAssetId")
+                    continue
+                
+                # 查找库存记录
+                inventory = SteamInventoryModel.find_by_assetid(steam_asset_id)
+                
+                if inventory:
+                    # 更新已存在的记录
+                    if asset_add_time:
+                        inventory.order_time = asset_add_time
+                    if show_mark_price:
+                        # 提取价格数字部分（去掉 ￥ 符号）
+                        if isinstance(show_mark_price, str) and show_mark_price.startswith('￥'):
+                            price_value = show_mark_price.replace('￥', '').strip()
+                        else:
+                            price_value = str(show_mark_price)
+                        inventory.yyyp_price = price_value
+                    
+                    if inventory.save():
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                        error_messages.append(f"SteamAssetId {steam_asset_id} 更新失败")
+                else:
+                    # 记录不存在
+                    failed_count += 1
+                    error_messages.append(f"SteamAssetId {steam_asset_id} 在数据库中不存在")
+                    
+            except Exception as e:
+                failed_count += 1
+                error_messages.append(f"处理 SteamAssetId {weapon.get('SteamAssetId', 'Unknown')} 时出错: {str(e)}")
+                print(f"批量更新时出错: {e}")
+                import traceback
+                print(traceback.format_exc())
+        
+        # 返回结果
+        return jsonify({
+            'success': True,
+            'data': {
+                'total': len(weapon_list),
+                'success_count': success_count,
+                'failed_count': failed_count,
+                'error_messages': error_messages[:10]  # 只返回前10条错误信息
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"批量更新悠悠有品价格失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'更新失败: {str(e)}'
         }), 500

@@ -87,13 +87,19 @@ class SteamInventoryModel(BaseModel):
                 'type': 'TEXT',
                 'not_null': False,
                 'default': None,
-                'comment': '购入价格'
+                'comment': '悠悠价格'
             },
             'buff_price': {
                 'type': 'TEXT',
                 'not_null': False,
                 'default': None,
-                'comment': '购入价格'
+                'comment': 'BUFF价格'
+            },
+            'order_time': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None,
+                'comment': '入库时间'
             },
             'if_inventory': {
                 'type': 'TEXT',
