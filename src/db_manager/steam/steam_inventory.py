@@ -19,9 +19,9 @@ class SteamInventoryModel(BaseModel):
         return {
             'assetid': {
                 'type': 'TEXT',
-                'primary_key': False,
-                'not_null': None,
-                'comment': '资产ID'
+                'primary_key': True,
+                'not_null': True,
+                'comment': '资产ID（主键）'
             },
             'instanceid': {
                 'type': 'TEXT',
@@ -77,12 +77,18 @@ class SteamInventoryModel(BaseModel):
                 'default': None,
                 'comment': '用户Steam ID'
             },
-               'buy_price': {
-                   'type': 'TEXT',
-                   'not_null': False,
-                   'default': None,
-                   'comment': '购入价格'
-               }
+            'buy_price': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None,
+                'comment': '购入价格'
+            },
+            'if_inventory': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': '1',
+                'comment': '是否在库存中：1=存在，0=不存在'
+            }
         }
     
     @classmethod

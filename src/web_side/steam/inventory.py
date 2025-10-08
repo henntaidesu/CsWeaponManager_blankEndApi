@@ -110,6 +110,9 @@ def insert_inventory():
         
         inventory_record.buy_price = buy_price
         
+        # 设置if_inventory为'1'（表示在库存中）
+        inventory_record.if_inventory = '1'
+        
         # 保存到数据库
         saved = inventory_record.save()
         
@@ -238,7 +241,7 @@ def delete_user_inventory(data_user):
 
 @steamInventoryV1.route('/inventory/batch', methods=['POST'])
 def insert_inventory_batch():
-    """批量插入Steam库存数据"""
+    """批量插入/更新Steam库存数据"""
     try:
         data = request.get_json()
         if not data:
@@ -251,20 +254,12 @@ def insert_inventory_batch():
         if not steam_id or not items:
             return jsonify({'success': False, 'error': 'steamId和items不能为空'}), 400
         
-        # 先删除该用户的所有旧记录
-        try:
-            count_before = SteamInventoryModel.count("data_user = ?", (steam_id,))
-            if count_before > 0:
-                from src.db_manager.database import DatabaseManager
-                db = DatabaseManager()
-                sql = f"DELETE FROM {SteamInventoryModel.get_table_name()} WHERE data_user = ?"
-                deleted_count = db.execute_update(sql, (steam_id,))
-                print(f"已删除用户 {steam_id} 的 {deleted_count} 条旧库存记录")
-        except Exception as e:
-            print(f"删除旧记录时出错: {str(e)}，继续插入新数据")
+        print(f"开始批量更新库存 - 用户: {steam_id}, 数据量: {len(items)}")
         
-        # 批量插入新数据
+        # 批量插入/更新数据
         success_count = 0
+        update_count = 0
+        insert_count = 0
         fail_count = 0
         failed_items = []
         price_filled_count = 0  # 自动填充价格成功的数量
@@ -307,44 +302,94 @@ def insert_inventory_batch():
                 trade_lock_info = item_data.get('trade_lock_info')
                 inventory_record.remark = trade_lock_info if trade_lock_info else None
                 
+                # 检查数据库中是否已存在该assetid的记录
+                assetid = item_data.get('assetid')
+                existing_record = SteamInventoryModel.find_by_assetid(assetid)
+                
                 # buy_price 字段 - 自动填充价格
                 buy_price = item_data.get('buy_price')
                 price_auto_filled = False
                 
                 # 如果没有提供价格，尝试自动填充
                 if buy_price is None or buy_price == '' or buy_price == 'None':
-                    # 先尝试特殊物品自动价格
-                    auto_price = get_auto_price(inventory_record.item_name)
-                    
-                    if auto_price is not None:
-                        buy_price = auto_price
-                        price_auto_filled = True
+                    # 如果已存在记录，优先使用原有价格
+                    if existing_record and existing_record.buy_price:
+                        buy_price = existing_record.buy_price
                     else:
-                        # 从buy表查询价格
-                        buy_price_from_db = get_price_from_buy_table(inventory_record.item_name, weapon_float)
-                        if buy_price_from_db is not None:
-                            buy_price = buy_price_from_db
+                        # 先尝试特殊物品自动价格
+                        auto_price = get_auto_price(inventory_record.item_name)
+                        
+                        if auto_price is not None:
+                            buy_price = auto_price
                             price_auto_filled = True
-                    
-                    # 统计填充结果
-                    if price_auto_filled:
-                        price_filled_count += 1
-                    else:
-                        price_not_filled_count += 1
+                        else:
+                            # 从buy表查询价格
+                            buy_price_from_db = get_price_from_buy_table(inventory_record.item_name, weapon_float)
+                            if buy_price_from_db is not None:
+                                buy_price = buy_price_from_db
+                                price_auto_filled = True
+                        
+                        # 统计填充结果
+                        if price_auto_filled:
+                            price_filled_count += 1
+                        else:
+                            price_not_filled_count += 1
                 
                 inventory_record.buy_price = buy_price
                 
-                # 保存到数据库
-                saved = inventory_record.save()
+                # 设置if_inventory为'1'（表示在库存中）
+                inventory_record.if_inventory = '1'
                 
-                if saved:
-                    success_count += 1
+                # 判断是更新还是插入
+                if existing_record:
+                    # 更新现有记录（使用主键assetid）
+                    from src.db_manager.database import DatabaseManager
+                    db = DatabaseManager()
+                    
+                    update_sql = f"""
+                    UPDATE {SteamInventoryModel.get_table_name()} 
+                    SET instanceid = ?, classid = ?, item_name = ?, weapon_name = ?, 
+                        float_range = ?, weapon_type = ?, weapon_float = ?, remark = ?, 
+                        data_user = ?, buy_price = ?, if_inventory = '1'
+                    WHERE assetid = ?
+                    """
+                    
+                    affected = db.execute_update(update_sql, (
+                        inventory_record.instanceid,
+                        inventory_record.classid,
+                        inventory_record.item_name,
+                        inventory_record.weapon_name,
+                        inventory_record.float_range,
+                        inventory_record.weapon_type,
+                        inventory_record.weapon_float,
+                        inventory_record.remark,
+                        steam_id,
+                        inventory_record.buy_price,
+                        assetid
+                    ))
+                    
+                    if affected > 0:
+                        success_count += 1
+                        update_count += 1
+                    else:
+                        fail_count += 1
+                        failed_items.append({
+                            'assetid': assetid,
+                            'reason': '更新失败'
+                        })
                 else:
-                    fail_count += 1
-                    failed_items.append({
-                        'assetid': item_data.get('assetid'),
-                        'reason': '数据插入失败'
-                    })
+                    # 插入新记录
+                    saved = inventory_record.save()
+                    
+                    if saved:
+                        success_count += 1
+                        insert_count += 1
+                    else:
+                        fail_count += 1
+                        failed_items.append({
+                            'assetid': assetid,
+                            'reason': '插入失败'
+                        })
                     
             except Exception as e:
                 fail_count += 1
@@ -354,14 +399,17 @@ def insert_inventory_batch():
                 })
                 print(f"插入单条数据时出错: {str(e)}")
         
-        # 打印价格填充统计
+        # 打印统计信息
         print(f"价格自动填充统计 - 成功: {price_filled_count}, 失败: {price_not_filled_count}")
+        print(f"库存更新统计 - 更新: {update_count}, 新增: {insert_count}, 失败: {fail_count}")
         
         return jsonify({
             'success': True,
-            'message': f'批量插入完成',
+            'message': f'批量更新完成',
             'data': {
                 'success_count': success_count,
+                'update_count': update_count,
+                'insert_count': insert_count,
                 'fail_count': fail_count,
                 'total': len(items),
                 'price_filled_count': price_filled_count,

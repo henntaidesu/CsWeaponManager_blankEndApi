@@ -34,7 +34,7 @@ def get_steam_ids():
         sql = """
         SELECT DISTINCT data_user, COUNT(*) as item_count
         FROM steam_inventory 
-        WHERE data_user IS NOT NULL AND data_user != ''
+        WHERE data_user IS NOT NULL AND data_user != '' AND if_inventory = '1'
         GROUP BY data_user
         ORDER BY item_count DESC
         """
@@ -74,7 +74,7 @@ def get_inventory(steam_id):
         offset = request.args.get('offset', 0, type=int)
         
         # 构建查询条件
-        where_conditions = ["data_user = ?"]
+        where_conditions = ["data_user = ?", "if_inventory = '1'"]  # 只查询在库存中的物品
         params = [steam_id]
         
         if search_text:
@@ -174,8 +174,10 @@ def get_inventory(steam_id):
         # records 已经是字典列表了
         inventory_list = records
         
-        # 获取总数
-        total = SteamInventoryModel.count(where_clause, tuple(params))
+        # 获取总数 - 需要使用相同的where条件和参数，但排除limit和offset
+        # 因为params在后面添加了limit和offset，所以需要去掉最后两个参数
+        count_params = params[:-2] if len(params) >= 2 else params
+        total = SteamInventoryModel.count(where_clause, tuple(count_params))
         
         return jsonify({
             'success': True,
@@ -201,7 +203,7 @@ def get_grouped_inventory(steam_id):
         
         db = DatabaseManager()
         
-        # 查询分组数据，未知物品排在最后，直接从buy_price字段获取价格
+        # 查询分组数据，只查询在库存中的物品（if_inventory = '1'）
         sql = """
         SELECT 
             si.item_name,
@@ -214,7 +216,7 @@ def get_grouped_inventory(steam_id):
             GROUP_CONCAT(si.remark, '|||') as remarks,
             GROUP_CONCAT(si.buy_price) as buy_prices
         FROM steam_inventory si
-        WHERE si.data_user = ?
+        WHERE si.data_user = ? AND si.if_inventory = '1'
         GROUP BY si.item_name, si.weapon_name, si.weapon_type, si.float_range
         ORDER BY 
             CASE 
@@ -273,16 +275,16 @@ def get_inventory_stats(steam_id):
         
         db = DatabaseManager()
         
-        # 统计总数
-        total_sql = "SELECT COUNT(*) FROM steam_inventory WHERE data_user = ?"
+        # 统计总数（只统计在库存中的物品）
+        total_sql = "SELECT COUNT(*) FROM steam_inventory WHERE data_user = ? AND if_inventory = '1'"
         total_result = db.execute_query(total_sql, (steam_id,))
         total_count = total_result[0][0] if total_result else 0
         
-        # 按武器类型统计
+        # 按武器类型统计（只统计在库存中的物品）
         type_sql = """
         SELECT weapon_type, COUNT(*) as count 
         FROM steam_inventory 
-        WHERE data_user = ? AND weapon_type IS NOT NULL AND weapon_type != ''
+        WHERE data_user = ? AND if_inventory = '1' AND weapon_type IS NOT NULL AND weapon_type != ''
         GROUP BY weapon_type
         ORDER BY count DESC
         """
@@ -296,11 +298,11 @@ def get_inventory_stats(steam_id):
                 'count': count
             })
         
-        # 按磨损等级统计
+        # 按磨损等级统计（只统计在库存中的物品）
         wear_sql = """
         SELECT float_range, COUNT(*) as count 
         FROM steam_inventory 
-        WHERE data_user = ? AND float_range IS NOT NULL AND float_range != ''
+        WHERE data_user = ? AND if_inventory = '1' AND float_range IS NOT NULL AND float_range != ''
         GROUP BY float_range
         ORDER BY count DESC
         """
@@ -314,7 +316,7 @@ def get_inventory_stats(steam_id):
                 'count': count
             })
         
-        # 统计购入价格总和（直接从buy_price字段读取）
+        # 统计购入价格总和（只统计在库存中的物品）
         price_sql = """
         SELECT 
             COUNT(CASE WHEN CAST(buy_price AS REAL) > 0 THEN 1 END) as priced_count,
@@ -323,7 +325,7 @@ def get_inventory_stats(steam_id):
             MIN(CAST(buy_price AS REAL)) as min_price,
             MAX(CAST(buy_price AS REAL)) as max_price
         FROM steam_inventory
-        WHERE data_user = ?
+        WHERE data_user = ? AND if_inventory = '1'
         """
         price_result = db.execute_query(price_sql, (steam_id,))
         
