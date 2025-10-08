@@ -4,6 +4,28 @@ from src.db_manager.database import DatabaseManager
 
 webInventoryV1 = Blueprint('webInventoryV1', __name__)
 
+
+def get_auto_price(item_name):
+    """
+    根据物品名称自动填充价格
+    返回: float 价格，或 None（需要从buy表查询）
+    """
+    if not item_name:
+        return None
+    
+    # 价格为0的物品关键词
+    zero_price_keywords = ['赛季奖牌', '奖牌', '勋章', '徽章', '布章', '硬币']
+    for keyword in zero_price_keywords:
+        if keyword in item_name:
+            return 0
+    
+    # 库存存储组件价格为14
+    if '库存存储组件' in item_name:
+        return 14
+    
+    # 其他物品返回None，需要从buy表查询
+    return None
+
 @webInventoryV1.route('/steam_ids', methods=['GET'])
 def get_steam_ids():
     """获取所有不同的Steam ID列表"""
@@ -75,52 +97,82 @@ def get_inventory(steam_id):
         db = DatabaseManager()
         
         sql = f"""
-        SELECT assetid, instanceid, classid, item_name, weapon_name, float_range, 
-               weapon_type, weapon_float, remark, data_user 
-        FROM {SteamInventoryModel.get_table_name()}
-        WHERE {where_clause}
+        SELECT 
+            si.assetid, si.instanceid, si.classid, si.item_name, si.weapon_name, si.float_range, 
+            si.weapon_type, si.weapon_float, si.remark, si.data_user, si.buy_price
+        FROM {SteamInventoryModel.get_table_name()} si
+        WHERE {where_clause.replace('data_user', 'si.data_user').replace('weapon_type', 'si.weapon_type').replace('float_range', 'si.float_range').replace('item_name', 'si.item_name').replace('weapon_name', 'si.weapon_name')}
         ORDER BY 
             CASE 
-                WHEN weapon_type = '未知物品' THEN 1
+                WHEN si.weapon_type = '未知物品' THEN 1
                 ELSE 0
             END,
-            ROWID
+            si.ROWID
         LIMIT ? OFFSET ?
         """
         params.extend([limit, offset])
         results = db.execute_query(sql, tuple(params))
         
-        # 将结果转换为模型对象
+        # 将结果转换为模型对象和字典
         records = []
         if results:
             for row in results:
-                record = SteamInventoryModel()
-                record.assetid = row[0]
-                record.instanceid = row[1]
-                record.classid = row[2]
-                record.item_name = row[3]
-                record.weapon_name = row[4]
-                record.float_range = row[5]
-                record.weapon_type = row[6]
-                record.weapon_float = row[7]
-                record.remark = row[8]
-                record.data_user = row[9]
+                # 优先读取steam_inventory表中的buy_price字段
+                # 使用 is None 判断，因为 buy_price 可能为 "0"（字符串）
+                buy_price_raw = row[10] if len(row) > 10 else None
+                buy_price = buy_price_raw if buy_price_raw not in [None, '', 'None'] else None
+                item_name = row[3]  # item_name
+                
+                # 只有当buy_price为空（None或空字符串）时，才进行后续处理
+                if buy_price is None:
+                    # 自动填充特殊物品价格
+                    auto_price = get_auto_price(item_name)
+                    
+                    if auto_price is not None:
+                        # 特殊物品，使用自动价格
+                        buy_price = auto_price
+                    else:
+                        # 普通物品，从buy表查询
+                        weapon_float = row[7]  # weapon_float
+                        
+                        if weapon_float:
+                            # 有磨损值，查询精确匹配
+                            price_sql = "SELECT price FROM buy WHERE item_name = ? AND weapon_float = ? LIMIT 1"
+                            price_result = db.execute_query(price_sql, (item_name, weapon_float))
+                            if price_result and len(price_result) > 0:
+                                buy_price = price_result[0][0]
+                        else:
+                            # 没有磨损值，查询平均价格
+                            avg_price_sql = "SELECT AVG(CAST(price AS REAL)) FROM buy WHERE item_name = ?"
+                            avg_result = db.execute_query(avg_price_sql, (item_name,))
+                            if avg_result and len(avg_result) > 0 and avg_result[0][0] is not None:
+                                buy_price = round(avg_result[0][0], 2)
+                    
+                    # 如果有价格（自动填充或从buy表查到），更新到steam_inventory数据库
+                    # 注意：buy_price可能为0（如勋章、硬币等），所以用 is not None 判断
+                    if buy_price is not None:
+                        update_sql = "UPDATE steam_inventory SET buy_price = ? WHERE assetid = ?"
+                        affected = db.execute_update(update_sql, (buy_price, row[0]))
+                        if affected > 0:
+                            print(f"自动填充价格: {item_name} -> ¥{buy_price}")
+                
+                record = {
+                    'assetid': row[0],
+                    'instanceid': row[1],
+                    'classid': row[2],
+                    'item_name': row[3],
+                    'weapon_name': row[4],
+                    'float_range': row[5],
+                    'weapon_type': row[6],
+                    'weapon_float': row[7],
+                    'remark': row[8],
+                    'data_user': row[9],
+                    'buy_price': buy_price
+                }
                 records.append(record)
         
-        # 转换为字典列表
-        inventory_list = []
-        for record in records:
-            inventory_list.append({
-                'assetid': record.assetid,
-                'instanceid': record.instanceid,
-                'classid': record.classid,
-                'weapon_name': record.weapon_name,
-                'item_name': record.item_name,
-                'weapon_type': record.weapon_type,
-                'weapon_float': record.weapon_float,
-                'float_range': record.float_range,
-                'remark': record.remark
-            })
+        # records 已经是字典列表了
+        inventory_list = records
         
         # 获取总数
         total = SteamInventoryModel.count(where_clause, tuple(params))
@@ -149,26 +201,27 @@ def get_grouped_inventory(steam_id):
         
         db = DatabaseManager()
         
-        # 查询分组数据，未知物品排在最后
+        # 查询分组数据，未知物品排在最后，直接从buy_price字段获取价格
         sql = """
         SELECT 
-            item_name,
-            weapon_name,
-            weapon_type,
-            float_range,
+            si.item_name,
+            si.weapon_name,
+            si.weapon_type,
+            si.float_range,
             COUNT(*) as count,
-            GROUP_CONCAT(assetid) as assetids,
-            GROUP_CONCAT(weapon_float) as weapon_floats,
-            GROUP_CONCAT(remark, '|||') as remarks
-        FROM steam_inventory 
-        WHERE data_user = ?
-        GROUP BY item_name, weapon_name, weapon_type, float_range
+            GROUP_CONCAT(si.assetid) as assetids,
+            GROUP_CONCAT(si.weapon_float) as weapon_floats,
+            GROUP_CONCAT(si.remark, '|||') as remarks,
+            GROUP_CONCAT(si.buy_price) as buy_prices
+        FROM steam_inventory si
+        WHERE si.data_user = ?
+        GROUP BY si.item_name, si.weapon_name, si.weapon_type, si.float_range
         ORDER BY 
             CASE 
-                WHEN weapon_type = '未知物品' THEN 1
+                WHEN si.weapon_type = '未知物品' THEN 1
                 ELSE 0
             END,
-            item_name
+            si.item_name
         """
         
         results = db.execute_query(sql, (steam_id,))
@@ -176,12 +229,13 @@ def get_grouped_inventory(steam_id):
         # 转换为字典列表
         grouped_list = []
         for row in results:
-            item_name, weapon_name, weapon_type, float_range, count, assetids, weapon_floats, remarks = row
+            item_name, weapon_name, weapon_type, float_range, count, assetids, weapon_floats, remarks, buy_prices = row
             
             # 分割字符串为列表
             assetid_list = assetids.split(',') if assetids else []
             float_list = weapon_floats.split(',') if weapon_floats else []
             remark_list = remarks.split('|||') if remarks else []
+            price_list = buy_prices.split(',') if buy_prices else []
             
             grouped_list.append({
                 'item_name': item_name,
@@ -191,7 +245,8 @@ def get_grouped_inventory(steam_id):
                 'count': count,
                 'assetids': assetid_list,
                 'weapon_floats': float_list,
-                'remarks': remark_list
+                'remarks': remark_list,
+                'buy_prices': price_list
             })
         
         return jsonify({
@@ -259,12 +314,44 @@ def get_inventory_stats(steam_id):
                 'count': count
             })
         
+        # 统计购入价格总和（直接从buy_price字段读取）
+        price_sql = """
+        SELECT 
+            COUNT(CASE WHEN CAST(buy_price AS REAL) > 0 THEN 1 END) as priced_count,
+            SUM(CAST(buy_price AS REAL)) as total_price,
+            AVG(CAST(buy_price AS REAL)) as avg_price,
+            MIN(CAST(buy_price AS REAL)) as min_price,
+            MAX(CAST(buy_price AS REAL)) as max_price
+        FROM steam_inventory
+        WHERE data_user = ?
+        """
+        price_result = db.execute_query(price_sql, (steam_id,))
+        
+        price_stats = {
+            'priced_count': 0,
+            'total_price': 0,
+            'avg_price': 0,
+            'min_price': 0,
+            'max_price': 0
+        }
+        
+        if price_result and len(price_result) > 0:
+            priced_count, total_price, avg_price, min_price, max_price = price_result[0]
+            price_stats = {
+                'priced_count': priced_count if priced_count else 0,
+                'total_price': round(total_price, 2) if total_price else 0,
+                'avg_price': round(avg_price, 2) if avg_price else 0,
+                'min_price': round(min_price, 2) if min_price else 0,
+                'max_price': round(max_price, 2) if max_price else 0
+            }
+        
         return jsonify({
             'success': True,
             'data': {
                 'total_count': total_count,
                 'by_type': type_stats,
-                'by_wear': wear_stats
+                'by_wear': wear_stats,
+                'price_stats': price_stats
             }
         }), 200
         
@@ -275,5 +362,44 @@ def get_inventory_stats(steam_id):
         return jsonify({
             'success': False,
             'error': f'查询失败: {str(e)}'
+        }), 500
+
+
+@webInventoryV1.route('/inventory/buy_price/<steam_id>/<assetid>', methods=['PUT'])
+def update_buy_price(steam_id, assetid):
+    """更新库存物品的购入价格"""
+    try:
+        data = request.get_json()
+        buy_price = data.get('buy_price', '')
+        
+        from src.db_manager.database import DatabaseManager
+        db = DatabaseManager()
+        
+        sql = """
+        UPDATE steam_inventory 
+        SET buy_price = ? 
+        WHERE data_user = ? AND assetid = ?
+        """
+        
+        affected_rows = db.execute_update(sql, (buy_price, steam_id, assetid))
+        
+        if affected_rows > 0:
+            return jsonify({
+                'success': True,
+                'message': '更新成功'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': '未找到对应记录'
+            }), 404
+            
+    except Exception as e:
+        print(f"更新buy_price失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'更新失败: {str(e)}'
         }), 500
 

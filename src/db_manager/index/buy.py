@@ -127,9 +127,25 @@ class BuyModel(BaseModel):
     @classmethod
     def get_indexes(cls) -> List[Dict[str, Any]]:
         return [
+            # 原有的综合索引
             {
                 'name': 'buy_idx',
                 'columns': ['weapon_name', 'item_name', 'weapon_float', 'float_range', 'price', 'seller_name', 'status', 'from']
+            },
+            # 针对库存查询优化的索引：精确匹配 item_name + weapon_float
+            {
+                'name': 'buy_idx_item_float',
+                'columns': ['item_name', 'weapon_float']
+            },
+            # 针对库存查询优化的索引：只匹配 item_name（用于平均价格计算）
+            {
+                'name': 'buy_idx_item_name',
+                'columns': ['item_name']
+            },
+            # 针对价格查询优化的索引
+            {
+                'name': 'buy_idx_item_price',
+                'columns': ['item_name', 'price']
             }
         ]
     

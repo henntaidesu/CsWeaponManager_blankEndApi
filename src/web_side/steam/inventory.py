@@ -47,6 +47,9 @@ def insert_inventory():
         trade_lock_info = data.get('trade_lock_info')
         inventory_record.remark = trade_lock_info if trade_lock_info else None
         
+        # buy_price 字段
+        inventory_record.buy_price = data.get('buy_price') # 默认从前端传入，或在Spider中设置
+        
         # 保存到数据库
         saved = inventory_record.save()
         
@@ -172,3 +175,45 @@ def delete_user_inventory(data_user):
             'error': f'删除失败: {str(e)}'
         }), 500
 
+
+@steamInventoryV1.route('/inventory/buy_price/<steam_id>/<assetid>', methods=['PUT'])
+def update_buy_price(steam_id, assetid):
+    """更新库存物品的购入价格"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': '无效的JSON数据'}), 400
+        
+        buy_price = data.get('buy_price')
+        
+        # 使用直接SQL更新
+        from src.db_manager.database import DatabaseManager
+        db = DatabaseManager()
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            'UPDATE steam_inventory SET buy_price = ? WHERE data_user = ? AND assetid = ?',
+            (buy_price, steam_id, assetid)
+        )
+        
+        conn.commit()
+        affected = cursor.rowcount
+        
+        if affected > 0:
+            return jsonify({
+                'success': True,
+                'message': '更新成功',
+                'affected': affected
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': '未找到匹配的记录'
+            }), 404
+            
+    except Exception as e:
+        print(f"更新buy_price时出错: {str(e)}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': f'服务器错误: {str(e)}'}), 500

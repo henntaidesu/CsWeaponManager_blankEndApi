@@ -76,7 +76,13 @@ class SteamInventoryModel(BaseModel):
                 'not_null': False,
                 'default': None,
                 'comment': '用户Steam ID'
-            }
+            },
+               'buy_price': {
+                   'type': 'TEXT',
+                   'not_null': False,
+                   'default': None,
+                   'comment': '购入价格'
+               }
         }
     
     @classmethod
