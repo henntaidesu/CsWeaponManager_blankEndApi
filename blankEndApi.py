@@ -10,7 +10,7 @@ from src.web_side.webSide.web.index_page import indexPage
 from src.web_side.webSide.web.buy_page import webBuyV1
 from src.web_side.webSide.web.sell_page import webSellV1
 from src.web_side.webSide.web.lent import webLentV1
-from src.web_side.webSide.web.DataSource_page import dataSourcePage
+from src.web_side.webSide.DataSource_page import dataSourcePage
 from src.web_side.buff163.buy import buff163BuyV1
 from src.web_side.buff163.sell import buff163SellV1
 from src.web_side.steam.market import steamMarketV1

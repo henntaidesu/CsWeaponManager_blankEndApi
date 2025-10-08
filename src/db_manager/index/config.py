@@ -47,6 +47,12 @@ class ConfigModel(BaseModel):
                 'type': 'TEXT',
                 'not_null': False,
                 'default': None
+            },
+            'steamID': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None,
+                'comment': 'Steam ID'
             }
         }
     

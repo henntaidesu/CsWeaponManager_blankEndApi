@@ -12,13 +12,25 @@ def get_datasources():
     """获取所有数据源"""
     try:
         db = Date_base()
-        success, result = db.select("SELECT dataID, dataName, key1, key2, value, status FROM config ORDER BY dataID")
+        
+        # 尝试查询steamID字段，如果不存在则不查询该字段
+        try:
+            success, result = db.select("SELECT dataID, dataName, key1, key2, value, status, steamID FROM config ORDER BY dataID")
+            has_steam_id_column = True
+        except Exception as e:
+            print(f"[WARNING] steamID列可能不存在，使用备用查询: {e}")
+            success, result = db.select("SELECT dataID, dataName, key1, key2, value, status FROM config ORDER BY dataID")
+            has_steam_id_column = False
         
         if success:
             # 按dataID和dataName分组数据
             datasource_groups = {}
             for row in result:
-                data_id, data_name, key1, key2, value, status = row
+                if has_steam_id_column:
+                    data_id, data_name, key1, key2, value, status, steam_id = row
+                else:
+                    data_id, data_name, key1, key2, value, status = row
+                    steam_id = None
                 
                 # 创建唯一键
                 key = f"{data_id}_{data_name}"
@@ -35,8 +47,13 @@ def get_datasources():
                         'status': status,
                         'enabled': status == '1',
                         'lastUpdate': datetime.now().isoformat(),
-                        'updateFreq': '15min'
+                        'updateFreq': '15min',
+                        'steamID': ''  # 初始化为空，后面从config或字段中提取
                     }
+                
+                # 如果steamID字段有值，直接使用
+                if steam_id:
+                    datasource_groups[key]['steamID'] = steam_id
                 
                 # 确保每次都更新数据源类型，以防有多条记录
                 if key1:
@@ -48,6 +65,14 @@ def get_datasources():
                         import json
                         config_json = json.loads(value)
                         if isinstance(config_json, dict):
+                            # 如果steamID字段为空，尝试从config中提取
+                            if not datasource_groups[key]['steamID']:
+                                extracted_steam_id = (config_json.get('steamID') or 
+                                                     config_json.get('steamId') or 
+                                                     config_json.get('yyyp_steamId') or '')
+                                if extracted_steam_id:
+                                    datasource_groups[key]['steamID'] = extracted_steam_id
+                            
                             # 为悠悠有品配置添加yyyp_前缀保持前端兼容性
                             if key1 == 'youpin':
                                 for config_key, config_value in config_json.items():
@@ -102,6 +127,15 @@ def get_datasources():
             
             datasources = list(datasource_groups.values())
             
+            # 调试日志：打印每个数据源的steamID
+            print(f"[DEBUG] ========== 返回 {len(datasources)} 个数据源 ==========")
+            for ds in datasources:
+                print(f"[DEBUG] 数据源: {ds.get('dataName')}, Type: {ds.get('type')}, SteamID: '{ds.get('steamID')}'")
+            
+            # 打印完整的返回数据
+            import json as json_lib
+            print(f"[DEBUG] 完整返回数据: {json_lib.dumps(datasources, ensure_ascii=False, indent=2)}")
+            
             return jsonify({
                 'success': True,
                 'data': datasources,
@@ -152,10 +186,22 @@ def add_datasource():
         config_json = data.get('configJson', '{}')
         config_json_escaped = config_json.replace("'", "''")
         
+        # 从配置JSON中提取steamID（支持不同的字段名）
+        steam_id = ''
+        try:
+            config_data = json.loads(config_json)
+            # 尝试不同的字段名：steamID, steamId, yyyp_steamId
+            steam_id = (config_data.get('steamID') or 
+                       config_data.get('steamId') or 
+                       config_data.get('yyyp_steamId') or '')
+        except:
+            pass
+        steam_id_escaped = steam_id.replace("'", "''") if steam_id else ''
+        
         # 插入单条记录，包含所有信息
         insert_sql = f"""
-        INSERT INTO config (dataID, dataName, key1, key2, value, status) 
-        VALUES ({new_id}, '{data_name}', '{data_type}', 'config', '{config_json_escaped}', '{status}')
+        INSERT INTO config (dataID, dataName, key1, key2, value, status, steamID) 
+        VALUES ({new_id}, '{data_name}', '{data_type}', 'config', '{config_json_escaped}', '{status}', '{steam_id_escaped}')
         """
         
         db = Date_base()
@@ -209,10 +255,22 @@ def update_datasource(data_id):
         config_json = data.get('configJson', '{}')
         config_json_escaped = config_json.replace("'", "''")
         
+        # 从配置JSON中提取steamID（支持不同的字段名）
+        steam_id = ''
+        try:
+            config_data = json.loads(config_json)
+            # 尝试不同的字段名：steamID, steamId, yyyp_steamId
+            steam_id = (config_data.get('steamID') or 
+                       config_data.get('steamId') or 
+                       config_data.get('yyyp_steamId') or '')
+        except:
+            pass
+        steam_id_escaped = steam_id.replace("'", "''") if steam_id else ''
+        
         # 直接更新单条记录
         update_sql = f"""
         UPDATE config 
-        SET dataName = '{data_name}', key1 = '{data_type}', value = '{config_json_escaped}', status = '{status}' 
+        SET dataName = '{data_name}', key1 = '{data_type}', value = '{config_json_escaped}', status = '{status}', steamID = '{steam_id_escaped}' 
         WHERE dataID = {data_id} AND key2 = 'config'
         """
         
