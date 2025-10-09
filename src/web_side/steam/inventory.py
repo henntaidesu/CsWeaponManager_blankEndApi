@@ -78,13 +78,15 @@ def insert_inventory():
         exterior = tags.get('Exterior', {})
         inventory_record.float_range = exterior.get('localized_tag_name')
         
-        # 磨损值 - 从asset_properties中获取
-        asset_properties = data.get('asset_properties', [])
-        weapon_float = None
-        for prop in asset_properties:
-            if prop.get('propertyid') == 2:  # propertyid 2 是磨损率
-                weapon_float = prop.get('float_value')
-                break
+        # 磨损值 - 优先使用前端传来的weapon_float（用于库存存储组件的数量），否则从asset_properties中获取
+        weapon_float = data.get('weapon_float')
+        if weapon_float is None:
+            # 从asset_properties中获取磨损值
+            asset_properties = data.get('asset_properties', [])
+            for prop in asset_properties:
+                if prop.get('propertyid') == 2:  # propertyid 2 是磨损率
+                    weapon_float = prop.get('float_value')
+                    break
         inventory_record.weapon_float = weapon_float
         
         # 交易相关
@@ -288,13 +290,15 @@ def insert_inventory_batch():
                 exterior = tags.get('Exterior', {})
                 inventory_record.float_range = exterior.get('localized_tag_name')
                 
-                # 磨损值 - 从asset_properties中获取
-                asset_properties = item_data.get('asset_properties', [])
-                weapon_float = None
-                for prop in asset_properties:
-                    if prop.get('propertyid') == 2:  # propertyid 2 是磨损率
-                        weapon_float = prop.get('float_value')
-                        break
+                # 磨损值 - 优先使用前端传来的weapon_float（用于库存存储组件的数量），否则从asset_properties中获取
+                weapon_float = item_data.get('weapon_float')
+                if weapon_float is None:
+                    # 从asset_properties中获取磨损值
+                    asset_properties = item_data.get('asset_properties', [])
+                    for prop in asset_properties:
+                        if prop.get('propertyid') == 2:  # propertyid 2 是磨损率
+                            weapon_float = prop.get('float_value')
+                            break
                 inventory_record.weapon_float = weapon_float
                 
                 # 交易相关
