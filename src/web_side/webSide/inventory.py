@@ -99,7 +99,7 @@ def get_inventory(steam_id):
         sql = f"""
         SELECT 
             si.assetid, si.instanceid, si.classid, si.item_name, si.weapon_name, si.float_range, 
-            si.weapon_type, si.weapon_float, si.remark, si.data_user, si.buy_price, si.yyyp_price, si.buff_price, si.order_time
+            si.weapon_type, si.weapon_float, si.remark, si.data_user, si.buy_price, si.yyyp_price, si.buff_price, si.steam_price, si.order_time
         FROM {SteamInventoryModel.get_table_name()} si
         WHERE {where_clause.replace('data_user', 'si.data_user').replace('weapon_type', 'si.weapon_type').replace('float_range', 'si.float_range').replace('item_name', 'si.item_name').replace('weapon_name', 'si.weapon_name')}
         ORDER BY 
@@ -170,7 +170,8 @@ def get_inventory(steam_id):
                     'buy_price': buy_price,
                     'yyyp_price': row[11] if len(row) > 11 else None,
                     'buff_price': row[12] if len(row) > 12 else None,
-                    'order_time': row[13] if len(row) > 13 else None
+                    'steam_price': row[13] if len(row) > 13 else None,
+                    'order_time': row[14] if len(row) > 14 else None
                 }
                 records.append(record)
         
@@ -220,6 +221,7 @@ def get_grouped_inventory(steam_id):
             GROUP_CONCAT(si.buy_price) as buy_prices,
             GROUP_CONCAT(si.yyyp_price) as yyyp_prices,
             GROUP_CONCAT(si.buff_price) as buff_prices,
+            GROUP_CONCAT(si.steam_price) as steam_prices,
             GROUP_CONCAT(si.order_time) as order_times
         FROM steam_inventory si
         WHERE si.data_user = ? AND si.if_inventory = '1'
@@ -237,7 +239,7 @@ def get_grouped_inventory(steam_id):
         # 转换为字典列表
         grouped_list = []
         for row in results:
-            item_name, weapon_name, weapon_type, float_range, count, assetids, weapon_floats, remarks, buy_prices, yyyp_prices, buff_prices, order_times = row
+            item_name, weapon_name, weapon_type, float_range, count, assetids, weapon_floats, remarks, buy_prices, yyyp_prices, buff_prices, steam_prices, order_times = row
             
             # 分割字符串为列表
             assetid_list = assetids.split(',') if assetids else []
@@ -246,6 +248,7 @@ def get_grouped_inventory(steam_id):
             price_list = buy_prices.split(',') if buy_prices else []
             yyyp_price_list = yyyp_prices.split(',') if yyyp_prices else []
             buff_price_list = buff_prices.split(',') if buff_prices else []
+            steam_price_list = steam_prices.split(',') if steam_prices else []
             order_time_list = order_times.split(',') if order_times else []
             
             grouped_list.append({
@@ -260,6 +263,7 @@ def get_grouped_inventory(steam_id):
                 'buy_prices': price_list,
                 'yyyp_prices': yyyp_price_list,
                 'buff_prices': buff_price_list,
+                'steam_prices': steam_price_list,
                 'order_times': order_time_list
             })
         
@@ -624,6 +628,100 @@ def batch_update_yyyp_price():
         
     except Exception as e:
         print(f"批量更新悠悠有品价格失败: {e}")
+        import traceback
+        print(f"详细错误信息: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'更新失败: {str(e)}'
+        }), 500
+
+
+@webInventoryV1.route('/inventory/batch_update_buff_price', methods=['POST'])
+def batch_update_buff_price():
+    """批量更新BUFF价格"""
+    try:
+        # 获取请求数据
+        data = request.get_json()
+        
+        if not data or 'weapon_list' not in data:
+            return jsonify({
+                'success': False,
+                'error': '缺少必要参数 weapon_list'
+            }), 400
+        
+        weapon_list = data['weapon_list']
+        
+        if not isinstance(weapon_list, list):
+            return jsonify({
+                'success': False,
+                'error': 'weapon_list 必须是数组'
+            }), 400
+        
+        # 统计信息
+        success_count = 0
+        failed_count = 0
+        error_messages = []
+        
+        # 遍历列表，更新每个武器的价格
+        for weapon in weapon_list:
+            try:
+                # 获取必要字段
+                assetid = weapon.get('assetid')
+                instanceid = weapon.get('instanceid')
+                steam_price = weapon.get('steam_price')
+                buff_price = weapon.get('buff_price')
+                
+                if not assetid:
+                    failed_count += 1
+                    error_messages.append(f"缺少 assetid")
+                    continue
+                
+                # 查找库存记录
+                inventory = SteamInventoryModel.find_by_assetid(assetid)
+                
+                if inventory:
+                    # 更新已存在的记录
+                    if instanceid:
+                        inventory.instanceid = instanceid
+                    
+                    if steam_price:
+                        # 确保价格是字符串格式
+                        inventory.steam_price = str(steam_price)
+                    
+                    if buff_price:
+                        # 确保价格是字符串格式
+                        inventory.buff_price = str(buff_price)
+                    
+                    if inventory.save():
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                        error_messages.append(f"assetid {assetid} 更新失败")
+                else:
+                    # 记录不存在
+                    failed_count += 1
+                    error_messages.append(f"assetid {assetid} 在数据库中不存在")
+                    
+            except Exception as e:
+                failed_count += 1
+                error_messages.append(f"处理 assetid {weapon.get('assetid', 'Unknown')} 时出错: {str(e)}")
+                print(f"批量更新时出错: {e}")
+                import traceback
+                print(traceback.format_exc())
+        
+        # 返回结果
+        return jsonify({
+            'success': True,
+            'data': {
+                'total': len(weapon_list),
+                'success_count': success_count,
+                'failed_count': failed_count,
+                'error_messages': error_messages[:10]  # 只返回前10条错误信息
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"批量更新BUFF价格失败: {e}")
         import traceback
         print(f"详细错误信息: {traceback.format_exc()}")
         return jsonify({
