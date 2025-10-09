@@ -23,6 +23,7 @@ from src.web_side.webSide.sell_page import webSellPageV1
 from src.web_side.webSide.lent_page import webLentPageV1
 from src.web_side.webSide.inventory import webInventoryV1
 from src.web_side.webSide.stock_components import webStockComponentsV1
+from src.web_side.prefectWorld.prefectworld_config import prefectWorldConfigV1
 from src.db_manager import init_database
 
 app = Flask(__name__)
@@ -59,6 +60,7 @@ def blankEndApi():
     app.register_blueprint(webLentPageV1, url_prefix = '/webLentPageV1')
     app.register_blueprint(webInventoryV1, url_prefix = '/webInventoryV1')
     app.register_blueprint(webStockComponentsV1, url_prefix = '/webStockComponentsV1')
+    app.register_blueprint(prefectWorldConfigV1, url_prefix = '/prefectWorldConfigV1')
     app.run(debug=True, port=9001, host='0.0.0.0')
 
 if __name__ == '__main__':
