@@ -388,6 +388,26 @@ def insert_inventory_batch():
                     if saved:
                         success_count += 1
                         insert_count += 1
+                        
+                        # 特殊处理：对于 classID = 3604678661 的库存存储组件，插入后立即更新 item_name 和 weapon_float
+                        if item_data.get('classid') == '3604678661':
+                            from src.db_manager.database import DatabaseManager
+                            db = DatabaseManager()
+                            
+                            # 更新 item_name 和 weapon_float
+                            update_storage_sql = f"""
+                            UPDATE {SteamInventoryModel.get_table_name()} 
+                            SET item_name = ?, weapon_float = ?
+                            WHERE assetid = ?
+                            """
+                            
+                            db.execute_update(update_storage_sql, (
+                                inventory_record.item_name,
+                                inventory_record.weapon_float,
+                                assetid
+                            ))
+                            
+                            print(f"库存存储组件特殊更新 - assetid: {assetid}, item_name: {inventory_record.item_name}, weapon_float: {inventory_record.weapon_float}")
                     else:
                         fail_count += 1
                         failed_items.append({
