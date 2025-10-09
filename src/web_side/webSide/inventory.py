@@ -28,23 +28,47 @@ def get_auto_price(item_name):
 
 @webInventoryV1.route('/steam_ids', methods=['GET'])
 def get_steam_ids():
-    """获取所有不同的Steam ID列表"""
+    """从config表获取所有不同的Steam ID列表"""
     try:
+        # 获取查询参数，判断是否只统计特定classid的物品
+        classid_filter = request.args.get('classid', '')
+        
         db = DatabaseManager()
+        # 从config表中获取去重的steamID
         sql = """
-        SELECT DISTINCT data_user, COUNT(*) as item_count
-        FROM steam_inventory 
-        WHERE data_user IS NOT NULL AND data_user != '' AND if_inventory = '1'
-        GROUP BY data_user
-        ORDER BY item_count DESC
+        SELECT DISTINCT steamID
+        FROM config 
+        WHERE steamID IS NOT NULL AND steamID != ''
+        ORDER BY steamID
         """
         results = db.execute_query(sql)
         
         steam_ids = []
         for row in results:
-            data_user, item_count = row
+            steam_id = row[0]
+            
+            # 查询该steamID在库存中的物品数量
+            if classid_filter:
+                # 如果指定了classid，只统计该classid的物品数量
+                count_sql = """
+                SELECT COUNT(*) 
+                FROM steam_inventory 
+                WHERE data_user = ? AND if_inventory = '1' AND classid = ?
+                """
+                count_result = db.execute_query(count_sql, (steam_id, classid_filter))
+            else:
+                # 否则统计所有物品数量
+                count_sql = """
+                SELECT COUNT(*) 
+                FROM steam_inventory 
+                WHERE data_user = ? AND if_inventory = '1'
+                """
+                count_result = db.execute_query(count_sql, (steam_id,))
+            
+            item_count = count_result[0][0] if count_result else 0
+            
             steam_ids.append({
-                'steam_id': data_user,
+                'steam_id': steam_id,
                 'item_count': item_count
             })
         
@@ -70,6 +94,7 @@ def get_inventory(steam_id):
         search_text = request.args.get('search', '')
         weapon_type = request.args.get('weapon_type', '')
         float_range = request.args.get('float_range', '')
+        classid = request.args.get('classid', '')  # 新增：classid筛选参数
         limit = request.args.get('limit', 100, type=int)
         offset = request.args.get('offset', 0, type=int)
         
@@ -89,6 +114,10 @@ def get_inventory(steam_id):
         if float_range:
             where_conditions.append("float_range = ?")
             params.append(float_range)
+        
+        if classid:
+            where_conditions.append("classid = ?")
+            params.append(classid)
         
         where_clause = " AND ".join(where_conditions)
         
