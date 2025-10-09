@@ -6,30 +6,9 @@ prefectWorldConfigV1 = Blueprint('prefectWorldConfigV1', __name__)
 
 @prefectWorldConfigV1.route('/config/<steam_id>', methods=['GET'])
 def get_prefectworld_config(steam_id):
-    """根据Steam ID获取完美世界配置
-    
-    Args:
-        steam_id: Steam ID
-        
-    Returns:
-        {
-            "success": true/false,
-            "data": {
-                "steamId": "Steam ID",
-                "appversion": "应用版本",
-                "device": "设备信息",
-                "gameType": "游戏类型",
-                "platform": "平台",
-                "token": "认证token",
-                "tdSign": "TD签名"
-            }
-        }
-    """
     try:
         print(f"[DEBUG] 查询完美世界配置，Steam ID: {steam_id}")
         db = DatabaseManager()
-        
-        # 查询config表，获取key1='perfectworld'的所有配置
         sql = """
         SELECT value FROM config 
         WHERE key1 = 'perfectworld'
