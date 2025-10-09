@@ -163,9 +163,9 @@ def insert_webside_selldata():
         yyyp_saved = yyyp_sell_record.save()
         print(f"yyyp_sell表保存结果: {yyyp_saved}")
 
-        # 始终插入到通用sell表
+        # 初始化sell_saved变量
         sell_saved = True
-        if True:  # 移除sell_number判断，始终插入
+        if sell_number == 1:
             print(f"插入销售记录到sell表，ID: {ID}")
             sell_record = SellModel()
             sell_record.ID = ID
