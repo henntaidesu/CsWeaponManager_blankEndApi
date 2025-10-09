@@ -11,7 +11,7 @@ from .manager import DBManager, init_database, get_db_manager
 # 导入所有模型
 from .index import ConfigModel, FundsModel, BuyModel, SellModel, LeaseModel
 from .yyyp import YyypBuyModel
-from .steam import SteamBuyModel, SteamSellModel, SteamInventoryHistoryModel, SteamInventoryModel
+from .steam import SteamBuyModel, SteamSellModel, SteamInventoryHistoryModel, SteamInventoryModel, SteamStockComponentsModel
 
 __all__ = [
     'DatabaseManager', 
@@ -28,5 +28,6 @@ __all__ = [
     'SteamBuyModel',
     'SteamSellModel',
     'SteamInventoryHistoryModel',
-    'SteamInventoryModel'
+    'SteamInventoryModel',
+    'SteamStockComponentsModel'
 ]
