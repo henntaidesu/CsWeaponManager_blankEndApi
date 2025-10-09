@@ -52,8 +52,6 @@ def batch_insert_components():
         update_count = 0
         failed_items = []
         
-        print(f"📦 开始处理数据: 总数={total_count}")
-        
         # 处理所有数据
         for item_index, item in enumerate(items):
             try:
@@ -110,19 +108,12 @@ def batch_insert_components():
                             'error': '插入记录失败'
                         })
                 
-                # 每处理100条输出一次进度
-                if (item_index + 1) % 100 == 0:
-                    progress = ((item_index + 1) / total_count) * 100
-                    print(f"📊 进度: {progress:.1f}% ({item_index + 1}/{total_count}) - 成功:{success_count}, 失败:{failed_count}")
-                
             except Exception as e:
                 failed_count += 1
                 failed_items.append({
                     'index': item_index,
                     'error': str(e)
                 })
-        
-        print(f"✅ 处理完成 - 总数:{total_count}, 成功:{success_count}, 失败:{failed_count}, 插入:{insert_count}, 更新:{update_count}")
         
         return jsonify({
             'code': 0,
@@ -138,7 +129,6 @@ def batch_insert_components():
         })
         
     except Exception as e:
-        print(f"❌ 处理异常: {str(e)}")
         return jsonify({
             'code': 500,
             'message': f'服务器错误: {str(e)}',
@@ -298,3 +288,71 @@ def delete_component(assetid):
             'result': None
         }), 500
 
+
+@prefectWorldStockComponentsV1.route('/delete/<assetid>/<steam_id>', methods=['DELETE'])
+def delete_component_by_assetid_and_user(assetid, steam_id):
+    """
+    删除指定 assetid 和 steam_id 的库存组件记录
+    
+    参数:
+        assetid: 资产ID
+        steam_id: Steam用户ID (对应data_user字段)
+    
+    返回:
+    {
+        "code": 0,
+        "message": "删除成功",
+        "result": {
+            "deleted_count": 1
+        }
+    }
+    """
+    try:
+        from src.db_manager.database import DatabaseManager
+        
+        db = DatabaseManager()
+        
+        # 先查询是否存在
+        check_sql = """
+        SELECT COUNT(*) FROM steam_stockComponents 
+        WHERE assetid = ? AND data_user = ?
+        """
+        check_result = db.execute_query(check_sql, (assetid, steam_id))
+        count = check_result[0][0] if check_result else 0
+        
+        if count == 0:
+            return jsonify({
+                'code': 0,
+                'message': '记录不存在或已删除',
+                'result': {
+                    'deleted_count': 0
+                }
+            })
+        
+        # 执行删除
+        delete_sql = """
+        DELETE FROM steam_stockComponents 
+        WHERE assetid = ? AND data_user = ?
+        """
+        
+        db.execute_update(delete_sql, (assetid, steam_id))
+        
+        print(f"✅ 删除成功 - assetid: {assetid}, steam_id: {steam_id}, 删除数量: {count}")
+        
+        return jsonify({
+            'code': 0,
+            'message': '删除成功',
+            'result': {
+                'deleted_count': count
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ 删除失败 - assetid: {assetid}, steam_id: {steam_id}, 错误: {str(e)}")
+        import traceback
+        print(f"详细错误: {traceback.format_exc()}")
+        return jsonify({
+            'code': 500,
+            'message': f'服务器错误: {str(e)}',
+            'result': None
+        }), 500
