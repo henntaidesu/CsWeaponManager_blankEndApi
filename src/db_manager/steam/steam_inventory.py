@@ -95,6 +95,12 @@ class SteamInventoryModel(BaseModel):
                 'default': None,
                 'comment': 'BUFF价格'
             },
+            'steam_price': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None,
+                'comment': 'Steam价格'
+            },
             'order_time': {
                 'type': 'TEXT',
                 'not_null': False,
