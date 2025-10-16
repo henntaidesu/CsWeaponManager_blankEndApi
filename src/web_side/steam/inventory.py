@@ -258,6 +258,36 @@ def insert_inventory_batch():
         
         print(f"开始批量更新库存 - 用户: {steam_id}, 数据量: {len(items)}")
         
+        # ==================== 新增：第一步 - 标记不在新列表中的旧库存为已移出 ====================
+        # 获取新列表中所有的assetid
+        new_assetids = [item.get('assetid') for item in items if item.get('assetid')]
+        removed_count = 0
+        
+        if new_assetids:
+            # 查询数据库中该用户的所有if_inventory=1的记录
+            from src.db_manager.database import DatabaseManager
+            db = DatabaseManager()
+            
+            # 构建占位符字符串
+            placeholders = ','.join(['?' for _ in new_assetids])
+            
+            # 将数据库中存在但不在新列表中的记录标记为if_inventory=0
+            mark_removed_sql = f"""
+            UPDATE {SteamInventoryModel.get_table_name()} 
+            SET if_inventory = '0'
+            WHERE data_user = ? 
+            AND if_inventory = '1'
+            AND assetid NOT IN ({placeholders})
+            """
+            
+            # 参数列表：steam_id + 所有新的assetids
+            mark_params = [steam_id] + new_assetids
+            removed_count = db.execute_update(mark_removed_sql, tuple(mark_params))
+            
+            if removed_count > 0:
+                print(f"标记 {removed_count} 件物品为已移出库存（if_inventory=0）")
+        
+        # ==================== 第二步 - 插入或更新新列表中的物品 ====================
         # 批量插入/更新数据
         success_count = 0
         update_count = 0
@@ -425,7 +455,7 @@ def insert_inventory_batch():
         
         # 打印统计信息
         print(f"价格自动填充统计 - 成功: {price_filled_count}, 失败: {price_not_filled_count}")
-        print(f"库存更新统计 - 更新: {update_count}, 新增: {insert_count}, 失败: {fail_count}")
+        print(f"库存更新统计 - 更新: {update_count}, 新增: {insert_count}, 移出: {removed_count}, 失败: {fail_count}")
         
         return jsonify({
             'success': True,
@@ -434,6 +464,7 @@ def insert_inventory_batch():
                 'success_count': success_count,
                 'update_count': update_count,
                 'insert_count': insert_count,
+                'removed_count': removed_count,  # 新增：移出库存的数量
                 'fail_count': fail_count,
                 'total': len(items),
                 'price_filled_count': price_filled_count,

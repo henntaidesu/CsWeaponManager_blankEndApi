@@ -76,7 +76,13 @@ def get_datasources():
                             # 为悠悠有品配置添加yyyp_前缀保持前端兼容性
                             if key1 == 'youpin':
                                 for config_key, config_value in config_json.items():
-                                    datasource_groups[key]['config'][f"yyyp_{config_key}"] = config_value
+                                    # 检查key是否已经有yyyp_前缀，避免重复添加
+                                    if config_key.startswith('yyyp_'):
+                                        # 已经有前缀，直接使用
+                                        datasource_groups[key]['config'][config_key] = config_value
+                                    else:
+                                        # 没有前缀，添加前缀
+                                        datasource_groups[key]['config'][f"yyyp_{config_key}"] = config_value
                             else:
                                 # 其他数据源直接使用配置项
                                 datasource_groups[key]['config'].update(config_json)

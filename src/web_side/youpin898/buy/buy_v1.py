@@ -19,11 +19,17 @@ def getWeaponNotEndStatusList(data_user):
         return jsonify([]), 500
 
 @youpin898BuyV1.route('/selectApexTime/<data_user>', methods=['get'])
-def selectApexTime(data_user):
+@youpin898BuyV1.route('/selectApexTime/', methods=['get'])
+@youpin898BuyV1.route('/selectApexTime', methods=['get'])
+def selectApexTime(data_user=None):
     try:
+        # 验证data_user参数
+        if not data_user:
+            return jsonify({'error': 'data_user参数不能为空'}), 400
+
         records = YyypBuyModel.find_all(
-            "data_user = ? ORDER BY order_time DESC", 
-            (data_user,), 
+            "data_user = ? ORDER BY order_time DESC",
+            (data_user,),
             limit=1
         )
         if records:
