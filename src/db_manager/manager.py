@@ -9,7 +9,7 @@ from .database import DatabaseManager
 
 # 导入所有模型
 from .index import ConfigModel, FundsModel, BuyModel, SellModel, LeaseModel
-from .yyyp import YyypBuyModel, YyypSellModel, YyypLentModel, YyypMessageboxModel
+from .yyyp import YyypBuyModel, YyypSellModel, YyypLentModel, YyypMessageboxModel, YyypWeaponClassIDModel
 from .buff import BuffBuyModel, BuffSellModel, BuffLentModel
 from .steam import SteamBuyModel, SteamSellModel, SteamInventoryHistoryModel, SteamInventoryHistoryIndexModel, SteamInventoryModel, SteamStockComponentsModel
 
@@ -36,6 +36,7 @@ class DBManager:
             YyypSellModel,
             YyypLentModel,
             YyypMessageboxModel,
+            YyypWeaponClassIDModel,
 
             # buff表
             BuffBuyModel,
