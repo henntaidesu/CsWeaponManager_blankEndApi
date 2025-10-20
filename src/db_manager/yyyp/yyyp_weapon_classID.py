@@ -43,15 +43,15 @@ class YyypWeaponClassIDModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
-            'created_at': {
-                'type': 'DATETIME',
+            'float_range': {
+                'type': 'TEXT',
                 'not_null': False,
-                'default': 'CURRENT_TIMESTAMP'
+                'default': None
             },
-            'updated_at': {
-                'type': 'DATETIME',
+            'Rarity': {
+                'type': 'TEXT',
                 'not_null': False,
-                'default': 'CURRENT_TIMESTAMP'
+                'default': None
             }
         }
     
@@ -70,6 +70,14 @@ class YyypWeaponClassIDModel(BaseModel):
             {
                 'name': 'idx_item_name',
                 'columns': ['item_name']
+            },
+            {
+                'name': 'idx_float_range',
+                'columns': ['float_range']
+            },
+            {
+                'name': 'idx_rarity',
+                'columns': ['Rarity']
             }
         ]
     
@@ -102,6 +110,16 @@ class YyypWeaponClassIDModel(BaseModel):
         """根据商品名称查询"""
         return cls.find_all(where="[CommodityName] = ?", params=(commodity_name,))
     
+    @classmethod
+    def find_by_rarity(cls, rarity: str):
+        """根据稀有度查询"""
+        return cls.find_all(where="[Rarity] = ?", params=(rarity,))
+    
+    @classmethod
+    def find_by_float_range(cls, float_range: str):
+        """根据品质范围查询"""
+        return cls.find_all(where="[float_range] = ?", params=(float_range,))
+    
     
     @classmethod
     def batch_insert_or_update(cls, weapon_list: List[Dict[str, Any]]) -> int:
@@ -119,18 +137,10 @@ class YyypWeaponClassIDModel(BaseModel):
                         if hasattr(existing, key):
                             setattr(existing, key, value)
                     
-                    # 更新时间戳
-                    from datetime import datetime
-                    existing.updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    
                     if existing.save():
                         success_count += 1
                 else:
                     # 插入新记录
-                    from datetime import datetime
-                    weapon_data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    weapon_data['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    
                     new_weapon = cls(**weapon_data)
                     if new_weapon.save():
                         success_count += 1

@@ -64,6 +64,44 @@ def getWeaponByType(weapon_type):
         }), 500
 
 
+@youpin898SelectWeaponV1.route('/getWeaponByRarity/<rarity>', methods=['GET'])
+def getWeaponByRarity(rarity):
+    """根据稀有度获取武器列表"""
+    try:
+        records = YyypWeaponClassIDModel.find_by_rarity(rarity)
+        data = [record.to_dict() for record in records]
+        return jsonify({
+            'success': True,
+            'data': data,
+            'count': len(data)
+        }), 200
+    except Exception as e:
+        print(f"根据稀有度获取武器列表失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'服务器错误: {str(e)}'
+        }), 500
+
+
+@youpin898SelectWeaponV1.route('/getWeaponByFloatRange/<float_range>', methods=['GET'])
+def getWeaponByFloatRange(float_range):
+    """根据品质范围获取武器列表"""
+    try:
+        records = YyypWeaponClassIDModel.find_by_float_range(float_range)
+        data = [record.to_dict() for record in records]
+        return jsonify({
+            'success': True,
+            'data': data,
+            'count': len(data)
+        }), 200
+    except Exception as e:
+        print(f"根据品质范围获取武器列表失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'服务器错误: {str(e)}'
+        }), 500
+
+
 @youpin898SelectWeaponV1.route('/searchWeapon', methods=['POST'])
 def searchWeapon():
     """搜索武器(支持多条件查询)"""
@@ -142,10 +180,6 @@ def insertWeapon():
             }), 400
         
         # 创建新记录
-        from datetime import datetime
-        data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        data['updated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
         weapon = YyypWeaponClassIDModel(**data)
         if weapon.save():
             return jsonify({
@@ -191,10 +225,6 @@ def updateWeapon(weapon_id):
         for key, value in data.items():
             if key != 'Id' and hasattr(weapon, key):
                 setattr(weapon, key, value)
-        
-        # 更新时间戳
-        from datetime import datetime
-        weapon.updated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         if weapon.save():
             return jsonify({
