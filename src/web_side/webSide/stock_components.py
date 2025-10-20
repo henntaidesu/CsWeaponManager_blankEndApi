@@ -498,3 +498,125 @@ def update_buy_price(steam_id, assetid):
             'message': f'服务器错误: {str(e)}'
         }), 500
 
+
+@webStockComponentsV1.route('/auto_fill_prices/<steam_id>', methods=['POST'])
+def auto_fill_prices(steam_id):
+    """
+    自动填充组件的购入价格
+    
+    参数:
+        steam_id: Steam用户ID (对应data_user字段)
+    
+    返回:
+    {
+        "success": True,
+        "data": {
+            "total_count": 总数,
+            "filled_count": 成功填充的数量,
+            "already_filled_count": 已有价格的数量,
+            "not_found_count": 未找到价格的数量
+        }
+    }
+    """
+    try:
+        db = DatabaseManager()
+        
+        # 查询该用户的所有组件
+        query_sql = """
+        SELECT assetid, item_name, buy_price
+        FROM steam_stockComponents
+        WHERE data_user = ?
+        """
+        components = db.execute_query(query_sql, (steam_id,))
+        
+        if not components:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'total_count': 0,
+                    'filled_count': 0,
+                    'already_filled_count': 0,
+                    'not_found_count': 0
+                },
+                'message': '该用户没有组件记录'
+            }), 200
+        
+        # 统计数据
+        total_count = len(components)
+        filled_count = 0
+        already_filled_count = 0
+        not_found_count = 0
+        
+        # 遍历每个组件
+        for component in components:
+            assetid = component[0]
+            item_name = component[1]
+            current_buy_price = component[2]
+            
+            # 如果已有价格（不为None且不为空字符串），跳过
+            if current_buy_price not in [None, '', 'None']:
+                already_filled_count += 1
+                continue
+            
+            # 根据item_name从yyyp_buy表查询价格
+            # 优先查询该steam_id的购买记录，如果没有则查询所有记录的平均价格
+            price_sql = """
+            SELECT price
+            FROM yyyp_buy
+            WHERE item_name = ? AND steam_id = ?
+            ORDER BY order_time DESC
+            LIMIT 1
+            """
+            price_result = db.execute_query(price_sql, (item_name, steam_id))
+            
+            buy_price = None
+            if price_result and price_result[0][0] is not None:
+                buy_price = price_result[0][0]
+            else:
+                # 如果没有找到该用户的购买记录，查询平均价格
+                avg_price_sql = """
+                SELECT AVG(CAST(price AS REAL))
+                FROM yyyp_buy
+                WHERE item_name = ?
+                """
+                avg_result = db.execute_query(avg_price_sql, (item_name,))
+                if avg_result and avg_result[0][0] is not None:
+                    buy_price = round(avg_result[0][0], 2)
+            
+            # 如果找到价格，更新
+            if buy_price is not None:
+                update_sql = """
+                UPDATE steam_stockComponents
+                SET buy_price = ?
+                WHERE assetid = ? AND data_user = ?
+                """
+                affected_rows = db.execute_update(update_sql, (str(buy_price), assetid, steam_id))
+                if affected_rows > 0:
+                    filled_count += 1
+                    print(f"✅ 自动填充价格成功 - assetid: {assetid}, item_name: {item_name}, price: {buy_price}")
+                else:
+                    not_found_count += 1
+            else:
+                not_found_count += 1
+                print(f"⚠️  未找到价格 - assetid: {assetid}, item_name: {item_name}")
+        
+        print(f"📊 自动填充价格完成 - steamId: {steam_id}, 总数: {total_count}, 成功填充: {filled_count}, 已有价格: {already_filled_count}, 未找到: {not_found_count}")
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_count': total_count,
+                'filled_count': filled_count,
+                'already_filled_count': already_filled_count,
+                'not_found_count': not_found_count
+            },
+            'message': f'价格自动填充完成！总计: {total_count}, 成功填充: {filled_count}, 已有价格: {already_filled_count}, 未找到: {not_found_count}'
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ 自动填充价格失败 - steam_id: {steam_id}")
+        print(f"错误详情: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'message': f'自动填充价格失败: {str(e)}'
+        }), 500
