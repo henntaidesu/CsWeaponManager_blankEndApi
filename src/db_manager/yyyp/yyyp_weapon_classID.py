@@ -36,6 +36,16 @@ class YyypWeaponClassIDModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
+            'yyyp_class_name': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
+            'buff_class_name': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
             'CommodityName': {
                 'type': 'TEXT',
                 'not_null': False,
@@ -88,6 +98,14 @@ class YyypWeaponClassIDModel(BaseModel):
             {
                 'name': 'idx_steam_id',
                 'columns': ['steam_id']
+            },
+            {
+                'name': 'idx_yyyp_class_name',
+                'columns': ['yyyp_class_name']
+            },
+            {
+                'name': 'idx_buff_class_name',
+                'columns': ['buff_class_name']
             },
             {
                 'name': 'idx_en_weapon_name',
