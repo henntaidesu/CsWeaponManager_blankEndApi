@@ -22,15 +22,15 @@ def getWeaponList():
         }), 500
 
 
-@youpin898SelectWeaponV1.route('/getWeaponById/<int:weapon_id>', methods=['GET'])
-def getWeaponById(weapon_id):
-    """根据ID获取武器信息"""
+@youpin898SelectWeaponV1.route('/getWeaponByYyypId/<int:yyyp_id>', methods=['GET'])
+def getWeaponByYyypId(yyyp_id):
+    """根据悠悠有品ID获取武器信息"""
     try:
-        record = YyypWeaponClassIDModel.find_by_id(Id=weapon_id)
-        if record:
+        records = YyypWeaponClassIDModel.find_by_yyyp_id(yyyp_id)
+        if records:
             return jsonify({
                 'success': True,
-                'data': record.to_dict()
+                'data': records[0].to_dict()
             }), 200
         else:
             return jsonify({
@@ -38,7 +38,53 @@ def getWeaponById(weapon_id):
                 'error': '武器不存在'
             }), 404
     except Exception as e:
-        print(f"根据ID获取武器失败: {e}")
+        print(f"根据悠悠有品ID获取武器失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'服务器错误: {str(e)}'
+        }), 500
+
+
+@youpin898SelectWeaponV1.route('/getWeaponByBuffId/<int:buff_id>', methods=['GET'])
+def getWeaponByBuffId(buff_id):
+    """根据BUFF ID获取武器信息"""
+    try:
+        records = YyypWeaponClassIDModel.find_by_buff_id(buff_id)
+        if records:
+            return jsonify({
+                'success': True,
+                'data': records[0].to_dict()
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': '武器不存在'
+            }), 404
+    except Exception as e:
+        print(f"根据BUFF ID获取武器失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'服务器错误: {str(e)}'
+        }), 500
+
+
+@youpin898SelectWeaponV1.route('/getWeaponBySteamId/<int:steam_id>', methods=['GET'])
+def getWeaponBySteamId(steam_id):
+    """根据Steam ID获取武器信息"""
+    try:
+        records = YyypWeaponClassIDModel.find_by_steam_id(steam_id)
+        if records:
+            return jsonify({
+                'success': True,
+                'data': records[0].to_dict()
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': '武器不存在'
+            }), 404
+    except Exception as e:
+        print(f"根据Steam ID获取武器失败: {e}")
         return jsonify({
             'success': False,
             'error': f'服务器错误: {str(e)}'
@@ -102,6 +148,25 @@ def getWeaponByFloatRange(float_range):
         }), 500
 
 
+@youpin898SelectWeaponV1.route('/getWeaponByEnName/<en_weapon_name>', methods=['GET'])
+def getWeaponByEnName(en_weapon_name):
+    """根据英文武器名称获取武器列表"""
+    try:
+        records = YyypWeaponClassIDModel.find_by_en_weapon_name(en_weapon_name)
+        data = [record.to_dict() for record in records]
+        return jsonify({
+            'success': True,
+            'data': data,
+            'count': len(data)
+        }), 200
+    except Exception as e:
+        print(f"根据英文武器名称获取武器列表失败: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'服务器错误: {str(e)}'
+        }), 500
+
+
 @youpin898SelectWeaponV1.route('/searchWeapon', methods=['POST'])
 def searchWeapon():
     """搜索武器(支持多条件查询)"""
@@ -142,13 +207,17 @@ def batchInsertOrUpdate():
                 'error': '无效的JSON数据，需要数组格式'
             }), 400
         
-        success_count = YyypWeaponClassIDModel.batch_insert_or_update(data)
+        # 获取平台参数，默认为yyyp
+        platform = request.args.get('platform', 'yyyp')
+        
+        success_count = YyypWeaponClassIDModel.batch_insert_or_update(data, platform=platform)
         
         return jsonify({
             'success': True,
             'message': f'成功处理 {success_count}/{len(data)} 条数据',
             'success_count': success_count,
-            'total_count': len(data)
+            'total_count': len(data),
+            'platform': platform
         }), 200
     except Exception as e:
         print(f"批量插入或更新武器数据失败: {e}")
@@ -171,12 +240,39 @@ def insertWeapon():
                 'error': '无效的JSON数据'
             }), 400
         
-        # 检查是否已存在
-        existing = YyypWeaponClassIDModel.find_by_id(Id=data.get('Id'))
-        if existing:
+        # 获取平台参数，默认为yyyp
+        platform = request.args.get('platform', 'yyyp')
+        id_field_map = {
+            'yyyp': 'yyyp_id',
+            'buff': 'buff_id',
+            'steam': 'steam_id'
+        }
+        id_field = id_field_map.get(platform, 'yyyp_id')
+        
+        # 兼容旧数据：如果传入的是'Id'字段，映射到对应字段
+        if 'Id' in data and id_field not in data:
+            data[id_field] = data.pop('Id')
+        
+        platform_id = data.get(id_field)
+        if not platform_id:
             return jsonify({
                 'success': False,
-                'error': '武器ID已存在，请使用更新接口'
+                'error': f'缺少{id_field}字段'
+            }), 400
+        
+        # 检查是否已存在
+        existing_list = None
+        if platform == 'yyyp':
+            existing_list = YyypWeaponClassIDModel.find_by_yyyp_id(platform_id)
+        elif platform == 'buff':
+            existing_list = YyypWeaponClassIDModel.find_by_buff_id(platform_id)
+        elif platform == 'steam':
+            existing_list = YyypWeaponClassIDModel.find_by_steam_id(platform_id)
+        
+        if existing_list:
+            return jsonify({
+                'success': False,
+                'error': f'武器{id_field}已存在，请使用更新接口'
             }), 400
         
         # 创建新记录
@@ -202,9 +298,9 @@ def insertWeapon():
         }), 500
 
 
-@youpin898SelectWeaponV1.route('/updateWeapon/<int:weapon_id>', methods=['PUT'])
-def updateWeapon(weapon_id):
-    """更新武器数据"""
+@youpin898SelectWeaponV1.route('/updateWeaponByYyypId/<int:yyyp_id>', methods=['PUT'])
+def updateWeaponByYyypId(yyyp_id):
+    """根据悠悠有品ID更新武器数据"""
     try:
         data = request.get_json()
         if not data:
@@ -214,16 +310,18 @@ def updateWeapon(weapon_id):
             }), 400
         
         # 查找记录
-        weapon = YyypWeaponClassIDModel.find_by_id(Id=weapon_id)
-        if not weapon:
+        records = YyypWeaponClassIDModel.find_by_yyyp_id(yyyp_id)
+        if not records:
             return jsonify({
                 'success': False,
                 'error': '武器不存在'
             }), 404
         
+        weapon = records[0]
+        
         # 更新字段
         for key, value in data.items():
-            if key != 'Id' and hasattr(weapon, key):
+            if key not in ['yyyp_id', 'buff_id', 'steam_id'] and hasattr(weapon, key):
                 setattr(weapon, key, value)
         
         if weapon.save():
@@ -247,17 +345,18 @@ def updateWeapon(weapon_id):
         }), 500
 
 
-@youpin898SelectWeaponV1.route('/deleteWeapon/<int:weapon_id>', methods=['DELETE'])
-def deleteWeapon(weapon_id):
-    """删除武器数据"""
+@youpin898SelectWeaponV1.route('/deleteWeaponByYyypId/<int:yyyp_id>', methods=['DELETE'])
+def deleteWeaponByYyypId(yyyp_id):
+    """根据悠悠有品ID删除武器数据"""
     try:
-        weapon = YyypWeaponClassIDModel.find_by_id(Id=weapon_id)
-        if not weapon:
+        records = YyypWeaponClassIDModel.find_by_yyyp_id(yyyp_id)
+        if not records:
             return jsonify({
                 'success': False,
                 'error': '武器不存在'
             }), 404
         
+        weapon = records[0]
         if weapon.delete():
             return jsonify({
                 'success': True,

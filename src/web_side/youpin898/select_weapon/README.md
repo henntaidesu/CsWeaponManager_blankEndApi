@@ -1,7 +1,7 @@
-# YYYP武器ClassID API文档
+# 武器ClassID API文档
 
 ## 概述
-用于管理悠悠有品武器模板ID和相关信息的API接口。
+用于统一管理各平台（悠悠有品、BUFF、Steam）武器模板ID和相关信息的API接口。
 
 **基础URL**: `http://localhost:9001/youpin898SelectWeaponV1`
 
@@ -10,15 +10,22 @@
 ### Weapon字段说明
 | 字段名 | 类型 | 说明 |
 |--------|------|------|
-| Id | INTEGER | 武器模板ID (主键) |
-| CommodityName | TEXT | 完整商品名称 |
+| yyyp_id | INTEGER | 悠悠有品武器模板ID |
+| buff_id | INTEGER | BUFF武器ID |
+| steam_id | INTEGER | Steam武器ID |
+| CommodityName | TEXT | 完整商品名称 (中文) |
+| en_weapon_name | TEXT | 英文武器名称 (CommodityHashName) |
 | weapon_type | TEXT | 武器类型 (如: 匕首、步枪) |
 | weapon_name | TEXT | 武器名称 (如: 弯刀（★）) |
 | item_name | TEXT | 皮肤/物品名称 (如: 多普勒) |
-| OnSaleCount | INTEGER | 在售数量 |
-| OnLeaseCount | INTEGER | 租赁数量 |
+| float_range | TEXT | 磨损范围 (如: 崭新出厂) |
+| Rarity | TEXT | 稀有度 |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 更新时间 |
+
+**说明**: 
+- 三个平台ID字段（yyyp_id、buff_id、steam_id）均为可选，至少需要一个
+- 可以通过任意平台ID来关联同一个武器的不同平台信息
 
 ---
 
@@ -35,13 +42,16 @@
   "success": true,
   "data": [
     {
-      "Id": 43705,
+      "yyyp_id": 43705,
+      "buff_id": 12345,
+      "steam_id": null,
       "CommodityName": "弯刀（★） | 多普勒 (崭新出厂)",
+      "en_weapon_name": "★ Falchion Knife | Doppler (Factory New)",
       "weapon_type": "匕首",
       "weapon_name": "弯刀（★）",
       "item_name": "多普勒",
-      "OnSaleCount": 130,
-      "OnLeaseCount": 52,
+      "float_range": "崭新出厂",
+      "Rarity": "隐秘",
       "created_at": "2025-10-19 12:00:00",
       "updated_at": "2025-10-19 12:00:00"
     }
@@ -97,7 +107,66 @@
 
 ---
 
-### 4. 搜索武器
+### 4. 根据稀有度获取武器
+**接口**: `GET /getWeaponByRarity/<rarity>`
+
+**参数**:
+- `rarity` (路径参数): 稀有度
+
+**示例**: `GET /getWeaponByRarity/隐秘`
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [...],
+  "count": 10
+}
+```
+
+---
+
+### 5. 根据品质范围获取武器
+**接口**: `GET /getWeaponByFloatRange/<float_range>`
+
+**参数**:
+- `float_range` (路径参数): 品质范围
+
+**示例**: `GET /getWeaponByFloatRange/崭新出厂`
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [...],
+  "count": 10
+}
+```
+
+---
+
+### 6. 根据英文武器名称获取武器
+**接口**: `GET /getWeaponByEnName/<en_weapon_name>`
+
+**参数**:
+- `en_weapon_name` (路径参数): 英文武器名称
+
+**示例**: `GET /getWeaponByEnName/★ Falchion Knife | Doppler (Factory New)`
+
+**说明**: 如果名称中包含特殊字符，请使用URL编码
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": [...],
+  "count": 1
+}
+```
+
+---
+
+### 7. 搜索武器
 **接口**: `POST /searchWeapon`
 
 **描述**: 支持多条件组合搜索
@@ -124,7 +193,7 @@
 
 ---
 
-### 5. 获取可用武器列表
+### 8. 获取可用武器列表
 **接口**: `GET /getAvailableWeapons`
 
 **描述**: 获取有在售或租赁数量的武器
@@ -146,7 +215,7 @@
 
 ---
 
-### 6. 批量插入或更新武器
+### 9. 批量插入或更新武器
 **接口**: `POST /batchInsertOrUpdate`
 
 **描述**: 批量插入或更新武器数据，如果ID已存在则更新，否则插入
@@ -157,20 +226,22 @@
   {
     "Id": 43705,
     "CommodityName": "弯刀（★） | 多普勒 (崭新出厂)",
+    "en_weapon_name": "★ Falchion Knife | Doppler (Factory New)",
     "weapon_type": "匕首",
     "weapon_name": "弯刀（★）",
     "item_name": "多普勒",
-    "OnSaleCount": 130,
-    "OnLeaseCount": 52
+    "float_range": "崭新出厂",
+    "Rarity": "隐秘"
   },
   {
     "Id": 50795,
     "CommodityName": "骷髅匕首（★） | 蓝钢 (破损不堪)",
+    "en_weapon_name": "★ Skeleton Knife | Blue Steel (Well-Worn)",
     "weapon_type": "匕首",
     "weapon_name": "骷髅匕首（★）",
     "item_name": "蓝钢",
-    "OnSaleCount": 92,
-    "OnLeaseCount": 12
+    "float_range": "破损不堪",
+    "Rarity": "隐秘"
   }
 ]
 ```
@@ -187,7 +258,7 @@
 
 ---
 
-### 7. 插入单个武器
+### 10. 插入单个武器
 **接口**: `POST /insertWeapon`
 
 **描述**: 插入单个武器数据 (ID不能已存在)
@@ -216,7 +287,7 @@
 
 ---
 
-### 8. 更新武器数据
+### 11. 更新武器数据
 **接口**: `PUT /updateWeapon/<weapon_id>`
 
 **参数**:
@@ -243,7 +314,7 @@
 
 ---
 
-### 9. 删除武器
+### 12. 删除武器
 **接口**: `DELETE /deleteWeapon/<weapon_id>`
 
 **参数**:
@@ -261,7 +332,7 @@
 
 ---
 
-### 10. 获取武器总数
+### 13. 获取武器总数
 **接口**: `GET /getWeaponCount`
 
 **描述**: 获取数据库中武器总数
@@ -359,5 +430,6 @@ fetch(`${baseUrl}/searchWeapon`, {
 1. **数据库自动初始化**: 首次启动API服务时会自动创建表
 2. **批量操作**: 使用`batchInsertOrUpdate`可以自动处理插入和更新
 3. **时间戳**: `created_at`和`updated_at`会自动管理
-4. **索引优化**: 已为`weapon_type`、`weapon_name`、`item_name`创建索引，查询性能较好
+4. **索引优化**: 已为`en_weapon_name`、`weapon_type`、`weapon_name`、`item_name`、`float_range`、`Rarity`创建索引，查询性能较好
+5. **新增字段**: v1.0.3版本新增`en_weapon_name`字段，用于存储英文武器名称(CommodityHashName)
 
