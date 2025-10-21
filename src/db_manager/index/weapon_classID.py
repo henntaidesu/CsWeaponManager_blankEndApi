@@ -196,15 +196,14 @@ class WeaponClassIDModel(BaseModel):
     @classmethod
     def batch_insert_or_update(cls, weapon_list: List[Dict[str, Any]], platform: str = 'yyyp') -> int:
         """
-        批量插入或更新武器数据
+        批量插入或更新武器数据（yyyp和steam平台专用）
         :param weapon_list: 武器数据列表
-        :param platform: 平台标识 ('yyyp', 'buff', 'steam')
+        :param platform: 平台标识 ('yyyp', 'steam')
         :return: 成功处理的数量
         """
         success_count = 0
         id_field_map = {
             'yyyp': 'yyyp_id',
-            'buff': 'buff_id',
             'steam': 'steam_id'
         }
         id_field = id_field_map.get(platform, 'yyyp_id')
@@ -223,19 +222,7 @@ class WeaponClassIDModel(BaseModel):
                 # 根据平台查询是否已存在
                 existing_list = None
 
-                if platform == 'buff':
-                    # BUFF平台：优先通过en_weapon_name匹配已有记录，然后更新buff_id
-                    en_weapon_name = weapon_data.get('en_weapon_name')
-                    if en_weapon_name:
-                        # 先通过en_weapon_name查找记录
-                        existing_list = cls.find_by_en_weapon_name(en_weapon_name)
-                        if not existing_list:
-                            # 如果通过en_weapon_name找不到，再尝试通过buff_id查找
-                            existing_list = cls.find_by_buff_id(platform_id)
-                    else:
-                        # 如果没有en_weapon_name，直接通过buff_id查找
-                        existing_list = cls.find_by_buff_id(platform_id)
-                elif platform == 'yyyp':
+                if platform == 'yyyp':
                     existing_list = cls.find_by_yyyp_id(platform_id)
                 elif platform == 'steam':
                     existing_list = cls.find_by_steam_id(platform_id)
@@ -243,28 +230,15 @@ class WeaponClassIDModel(BaseModel):
                 existing = existing_list[0] if existing_list else None
 
                 if existing:
-                    # 更新现有记录
-                    if platform == 'buff':
-                        # BUFF平台：只更新buff_id字段
-                        existing.buff_id = platform_id
-                        if existing.save():
-                            success_count += 1
-                            print(f"通过en_weapon_name匹配并更新buff_id: {platform_id}, en_weapon_name: {weapon_data.get('en_weapon_name')}")
-                    else:
-                        # 其他平台：更新所有字段
-                        for key, value in weapon_data.items():
-                            if hasattr(existing, key):
-                                setattr(existing, key, value)
+                    # 更新现有记录（更新所有字段）
+                    for key, value in weapon_data.items():
+                        if hasattr(existing, key):
+                            setattr(existing, key, value)
 
-                        if existing.save():
-                            success_count += 1
+                    if existing.save():
+                        success_count += 1
                 else:
-                    # BUFF平台：只更新不插入，跳过没有匹配的记录
-                    if platform == 'buff':
-                        print(f"BUFF数据未找到匹配记录，跳过插入: buff_id={platform_id}, en_weapon_name={weapon_data.get('en_weapon_name')}")
-                        continue
-
-                    # 其他平台：插入新记录
+                    # 插入新记录
                     new_weapon = cls(**weapon_data)
                     if new_weapon.save():
                         success_count += 1
@@ -275,4 +249,51 @@ class WeaponClassIDModel(BaseModel):
                 print(f"错误堆栈: {traceback.format_exc()}")
                 continue
 
+        return success_count
+
+    @classmethod
+    def batch_update_buff_id(cls, weapon_list: List[Dict[str, Any]]) -> int:
+        """
+        BUFF专用：批量更新buff_id和buff_class_name（只更新BUFF相关字段）
+        :param weapon_list: 武器数据列表，每项包含 buff_id, en_weapon_name, buff_class_name
+        :return: 成功更新的数量
+        """
+        success_count = 0
+        skip_count = 0
+        db = cls().db
+
+        for weapon_data in weapon_list:
+            try:
+                buff_id = weapon_data.get('buff_id')
+                en_weapon_name = weapon_data.get('en_weapon_name')
+                buff_class_name = weapon_data.get('buff_class_name')
+
+                if not buff_id:
+                    print(f"BUFF数据缺少buff_id字段，跳过")
+                    skip_count += 1
+                    continue
+
+                if not en_weapon_name:
+                    print(f"BUFF数据缺少en_weapon_name字段，跳过: buff_id={buff_id}")
+                    skip_count += 1
+                    continue
+
+                # 直接执行 UPDATE 语句，通过 en_weapon_name 匹配，同时更新 buff_id 和 buff_class_name
+                sql = f'UPDATE {cls.get_table_name()} SET [buff_id] = ?, [buff_class_name] = ? WHERE [en_weapon_name] = ?'
+                affected_rows = db.execute_update(sql, (buff_id, buff_class_name, en_weapon_name))
+
+                if affected_rows > 0:
+                    success_count += 1
+                    print(f"✅ 更新BUFF数据成功: buff_id={buff_id}, buff_class_name={buff_class_name}, en_weapon_name={en_weapon_name}")
+                else:
+                    skip_count += 1
+                    print(f"⚠️  未找到匹配记录，跳过: buff_id={buff_id}, en_weapon_name={en_weapon_name}")
+
+            except Exception as e:
+                print(f"处理BUFF数据失败: buff_id={weapon_data.get('buff_id')}, 错误: {e}")
+                import traceback
+                print(f"错误堆栈: {traceback.format_exc()}")
+                continue
+
+        print(f"BUFF更新完成: 成功 {success_count} 条, 跳过 {skip_count} 条")
         return success_count
