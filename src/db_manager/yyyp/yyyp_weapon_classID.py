@@ -208,48 +208,61 @@ class YyypWeaponClassIDModel(BaseModel):
             'steam': 'steam_id'
         }
         id_field = id_field_map.get(platform, 'yyyp_id')
-        
+
         for weapon_data in weapon_list:
             try:
                 # 兼容旧数据：如果传入的是'Id'字段，根据平台映射到对应字段
                 if 'Id' in weapon_data and id_field not in weapon_data:
                     weapon_data[id_field] = weapon_data.pop('Id')
-                
+
                 platform_id = weapon_data.get(id_field)
                 if not platform_id:
                     print(f"武器数据缺少{id_field}字段，跳过")
                     continue
-                
-                # 根据平台ID查询是否已存在
+
+                # 根据平台查询是否已存在
                 existing_list = None
-                if platform == 'yyyp':
+
+                if platform == 'buff':
+                    # BUFF平台：优先通过en_weapon_name匹配已有记录，然后更新buff_id
+                    en_weapon_name = weapon_data.get('en_weapon_name')
+                    if en_weapon_name:
+                        # 先通过en_weapon_name查找记录
+                        existing_list = cls.find_by_en_weapon_name(en_weapon_name)
+                        if not existing_list:
+                            # 如果通过en_weapon_name找不到，再尝试通过buff_id查找
+                            existing_list = cls.find_by_buff_id(platform_id)
+                    else:
+                        # 如果没有en_weapon_name，直接通过buff_id查找
+                        existing_list = cls.find_by_buff_id(platform_id)
+                elif platform == 'yyyp':
                     existing_list = cls.find_by_yyyp_id(platform_id)
-                elif platform == 'buff':
-                    existing_list = cls.find_by_buff_id(platform_id)
                 elif platform == 'steam':
                     existing_list = cls.find_by_steam_id(platform_id)
-                
+
                 existing = existing_list[0] if existing_list else None
-                
+
                 if existing:
                     # 更新现有记录
                     for key, value in weapon_data.items():
                         if hasattr(existing, key):
                             setattr(existing, key, value)
-                    
+
                     if existing.save():
                         success_count += 1
+                        if platform == 'buff':
+                            print(f"通过en_weapon_name匹配并更新buff_id: {platform_id}, en_weapon_name: {weapon_data.get('en_weapon_name')}")
                 else:
                     # 插入新记录
                     new_weapon = cls(**weapon_data)
                     if new_weapon.save():
                         success_count += 1
-            
+
             except Exception as e:
                 print(f"处理武器数据失败 ({id_field}: {weapon_data.get(id_field)}): {e}")
                 import traceback
                 print(f"错误堆栈: {traceback.format_exc()}")
                 continue
-        
+
         return success_count
 
