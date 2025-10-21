@@ -8,13 +8,13 @@ from typing import Dict, Any, List
 from ..base_model import BaseModel
 
 
-class YyypWeaponClassIDModel(BaseModel):
+class WeaponClassIDModel(BaseModel):
     """武器ClassID表模型（统一管理各平台武器ID）"""
-    
+
     @classmethod
     def get_table_name(cls) -> str:
         return "weapon_classID"
-    
+
     @classmethod
     def get_fields(cls) -> Dict[str, Dict[str, Any]]:
         return {
@@ -82,7 +82,7 @@ class YyypWeaponClassIDModel(BaseModel):
                 'default': None
             }
         }
-    
+
     @classmethod
     def get_indexes(cls) -> List[Dict[str, Any]]:
         """定义索引"""
@@ -132,67 +132,67 @@ class YyypWeaponClassIDModel(BaseModel):
                 'columns': ['Rarity']
             }
         ]
-    
+
     @classmethod
     def find_by_weapon_info(cls, weapon_type: str = None, weapon_name: str = None, item_name: str = None):
         """根据武器信息查询"""
         conditions = []
         params = []
-        
+
         if weapon_type:
             conditions.append("[weapon_type] = ?")
             params.append(weapon_type)
-        
+
         if weapon_name:
             conditions.append("[weapon_name] = ?")
             params.append(weapon_name)
-        
+
         if item_name:
             conditions.append("[item_name] = ?")
             params.append(item_name)
-        
+
         if not conditions:
             return cls.find_all()
-        
+
         where_clause = " AND ".join(conditions)
         return cls.find_all(where=where_clause, params=tuple(params))
-    
+
     @classmethod
     def find_by_commodity_name(cls, commodity_name: str):
         """根据商品名称查询"""
         return cls.find_all(where="[CommodityName] = ?", params=(commodity_name,))
-    
+
     @classmethod
     def find_by_en_weapon_name(cls, en_weapon_name: str):
         """根据英文武器名称查询"""
         return cls.find_all(where="[en_weapon_name] = ?", params=(en_weapon_name,))
-    
+
     @classmethod
     def find_by_yyyp_id(cls, yyyp_id: int):
         """根据悠悠有品ID查询"""
         return cls.find_all(where="[yyyp_id] = ?", params=(yyyp_id,))
-    
+
     @classmethod
     def find_by_buff_id(cls, buff_id: int):
         """根据BUFF ID查询"""
         return cls.find_all(where="[buff_id] = ?", params=(buff_id,))
-    
+
     @classmethod
     def find_by_steam_id(cls, steam_id: int):
         """根据Steam ID查询"""
         return cls.find_all(where="[steam_id] = ?", params=(steam_id,))
-    
+
     @classmethod
     def find_by_rarity(cls, rarity: str):
         """根据稀有度查询"""
         return cls.find_all(where="[Rarity] = ?", params=(rarity,))
-    
+
     @classmethod
     def find_by_float_range(cls, float_range: str):
         """根据品质范围查询"""
         return cls.find_all(where="[float_range] = ?", params=(float_range,))
-    
-    
+
+
     @classmethod
     def batch_insert_or_update(cls, weapon_list: List[Dict[str, Any]], platform: str = 'yyyp') -> int:
         """
@@ -276,4 +276,3 @@ class YyypWeaponClassIDModel(BaseModel):
                 continue
 
         return success_count
-

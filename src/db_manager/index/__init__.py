@@ -8,5 +8,6 @@ from .funds import FundsModel
 from .buy import BuyModel
 from .sell import SellModel
 from .lease import LeaseModel
+from .weapon_classID import WeaponClassIDModel
 
-__all__ = ['ConfigModel', 'FundsModel', 'BuyModel', 'SellModel', 'LeaseModel']
+__all__ = ['ConfigModel', 'FundsModel', 'BuyModel', 'SellModel', 'LeaseModel', 'WeaponClassIDModel']
