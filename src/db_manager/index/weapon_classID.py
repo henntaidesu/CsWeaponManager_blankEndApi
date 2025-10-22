@@ -36,6 +36,11 @@ class WeaponClassIDModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
+            'steam_hash_name': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
             'yyyp_class_name': {
                 'type': 'TEXT',
                 'not_null': False,
@@ -98,6 +103,10 @@ class WeaponClassIDModel(BaseModel):
             {
                 'name': 'idx_steam_id',
                 'columns': ['steam_id']
+            },
+            {
+                'name': 'idx_steam_hash_name',
+                'columns': ['steam_hash_name']
             },
             {
                 'name': 'idx_yyyp_class_name',
@@ -183,6 +192,11 @@ class WeaponClassIDModel(BaseModel):
         return cls.find_all(where="[steam_id] = ?", params=(steam_id,))
 
     @classmethod
+    def find_by_steam_hash_name(cls, steam_hash_name: str):
+        """根据Steam Hash Name查询"""
+        return cls.find_all(where="[steam_hash_name] = ?", params=(steam_hash_name,))
+
+    @classmethod
     def find_by_rarity(cls, rarity: str):
         """根据稀有度查询"""
         return cls.find_all(where="[Rarity] = ?", params=(rarity,))
@@ -254,12 +268,14 @@ class WeaponClassIDModel(BaseModel):
     @classmethod
     def batch_update_buff_id(cls, weapon_list: List[Dict[str, Any]]) -> int:
         """
-        BUFF专用：批量更新buff_id和buff_class_name（只更新BUFF相关字段）
+        BUFF专用：批量更新或插入buff_id和buff_class_name（UPSERT操作）
         :param weapon_list: 武器数据列表，每项包含 buff_id, en_weapon_name, buff_class_name
-        :return: 成功更新的数量
+        :return: 成功处理的数量
         """
         success_count = 0
         skip_count = 0
+        insert_count = 0
+        update_count = 0
         db = cls().db
 
         for weapon_data in weapon_list:
@@ -278,16 +294,22 @@ class WeaponClassIDModel(BaseModel):
                     skip_count += 1
                     continue
 
-                # 直接执行 UPDATE 语句，通过 en_weapon_name 匹配，同时更新 buff_id 和 buff_class_name
-                sql = f'UPDATE {cls.get_table_name()} SET [buff_id] = ?, [buff_class_name] = ? WHERE [en_weapon_name] = ?'
-                affected_rows = db.execute_update(sql, (buff_id, buff_class_name, en_weapon_name))
+                # 先尝试 UPDATE
+                sql_update = f'UPDATE {cls.get_table_name()} SET [buff_id] = ?, [buff_class_name] = ? WHERE [en_weapon_name] = ?'
+                affected_rows = db.execute_update(sql_update, (buff_id, buff_class_name, en_weapon_name))
 
                 if affected_rows > 0:
+                    # 更新成功
                     success_count += 1
+                    update_count += 1
                     print(f"✅ 更新BUFF数据成功: buff_id={buff_id}, buff_class_name={buff_class_name}, en_weapon_name={en_weapon_name}")
                 else:
-                    skip_count += 1
-                    print(f"⚠️  未找到匹配记录，跳过: buff_id={buff_id}, en_weapon_name={en_weapon_name}")
+                    # 未找到记录，执行 INSERT
+                    sql_insert = f'INSERT INTO {cls.get_table_name()} ([buff_id], [en_weapon_name], [buff_class_name]) VALUES (?, ?, ?)'
+                    db.execute_insert(sql_insert, (buff_id, en_weapon_name, buff_class_name))
+                    success_count += 1
+                    insert_count += 1
+                    print(f"✅ 插入新BUFF数据: buff_id={buff_id}, buff_class_name={buff_class_name}, en_weapon_name={en_weapon_name}")
 
             except Exception as e:
                 print(f"处理BUFF数据失败: buff_id={weapon_data.get('buff_id')}, 错误: {e}")
@@ -295,5 +317,72 @@ class WeaponClassIDModel(BaseModel):
                 print(f"错误堆栈: {traceback.format_exc()}")
                 continue
 
-        print(f"BUFF更新完成: 成功 {success_count} 条, 跳过 {skip_count} 条")
+        print(f"BUFF更新完成: 总成功 {success_count} 条 (更新 {update_count} 条, 插入 {insert_count} 条), 跳过 {skip_count} 条")
+        return success_count
+
+    @classmethod
+    def batch_update_steam_hash_name(cls, weapon_list: List[Dict[str, Any]]) -> int:
+        """
+        Steam专用：批量更新或插入steam_hash_name（UPSERT操作）
+        :param weapon_list: 武器数据列表，每项包含 data_hash_name, market_listing_item_name, weapon_type, weapon_name, item_name 等
+        :return: 成功处理的数量
+        """
+        success_count = 0
+        skip_count = 0
+        insert_count = 0
+        update_count = 0
+        db = cls().db
+
+        for weapon_data in weapon_list:
+            try:
+                data_hash_name = weapon_data.get('data_hash_name')
+                market_listing_item_name = weapon_data.get('market_listing_item_name')
+                weapon_type = weapon_data.get('weapon_type')
+                weapon_name = weapon_data.get('weapon_name')
+                item_name = weapon_data.get('item_name')
+
+                if not data_hash_name:
+                    print(f"Steam数据缺少data_hash_name字段，跳过")
+                    skip_count += 1
+                    continue
+
+                # 尝试根据weapon_type, weapon_name, item_name匹配现有记录并更新
+                if weapon_type and weapon_name and item_name:
+                    # 先尝试 UPDATE（匹配三个字段）
+                    sql_update = f'''UPDATE {cls.get_table_name()} 
+                                    SET [steam_hash_name] = ? 
+                                    WHERE [weapon_type] = ? AND [weapon_name] = ? AND [item_name] = ?'''
+                    affected_rows = db.execute_update(sql_update, (data_hash_name, weapon_type, weapon_name, item_name))
+
+                    if affected_rows > 0:
+                        # 更新成功
+                        success_count += 1
+                        update_count += 1
+                        print(f"✅ 更新Steam Hash Name: {data_hash_name[:50]}... -> {weapon_type} | {weapon_name} | {item_name}")
+                    else:
+                        # 未找到匹配记录，插入新记录
+                        sql_insert = f'''INSERT INTO {cls.get_table_name()} 
+                                        ([steam_hash_name], [weapon_type], [weapon_name], [item_name], [CommodityName]) 
+                                        VALUES (?, ?, ?, ?, ?)'''
+                        db.execute_insert(sql_insert, (data_hash_name, weapon_type, weapon_name, item_name, market_listing_item_name))
+                        success_count += 1
+                        insert_count += 1
+                        print(f"✅ 插入新Steam数据: {data_hash_name[:50]}... -> {weapon_type} | {weapon_name} | {item_name}")
+                else:
+                    # 如果解析字段不完整，仅插入hash_name和商品名称
+                    sql_insert = f'''INSERT INTO {cls.get_table_name()} 
+                                    ([steam_hash_name], [CommodityName]) 
+                                    VALUES (?, ?)'''
+                    db.execute_insert(sql_insert, (data_hash_name, market_listing_item_name))
+                    success_count += 1
+                    insert_count += 1
+                    print(f"✅ 插入Steam Hash Name（无分类）: {data_hash_name[:50]}...")
+
+            except Exception as e:
+                print(f"处理Steam数据失败: data_hash_name={weapon_data.get('data_hash_name', '')[:50]}, 错误: {e}")
+                import traceback
+                print(f"错误堆栈: {traceback.format_exc()}")
+                continue
+
+        print(f"Steam更新完成: 总成功 {success_count} 条 (更新 {update_count} 条, 插入 {insert_count} 条), 跳过 {skip_count} 条")
         return success_count
