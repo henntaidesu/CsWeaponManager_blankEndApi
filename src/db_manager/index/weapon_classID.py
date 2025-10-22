@@ -327,16 +327,21 @@ class WeaponClassIDModel(BaseModel):
                     skip_count += 1
                     continue
 
-                # 直接插入数据
-                sql_insert = f'''INSERT INTO {cls.get_table_name()} 
+                # 使用 INSERT OR IGNORE 避免主键冲突
+                sql_insert = f'''INSERT OR IGNORE INTO {cls.get_table_name()} 
                                 ([steam_hash_name], [weapon_type], [weapon_name], [item_name], [market_listing_item_name]) 
                                 VALUES (?, ?, ?, ?, ?)'''
-                db.execute_insert(sql_insert, (data_hash_name, weapon_type, weapon_name, item_name, market_listing_item_name))
-                success_count += 1
+                affected_rows = db.execute_insert(sql_insert, (data_hash_name, weapon_type, weapon_name, item_name, market_listing_item_name))
+                
+                if affected_rows > 0:
+                    success_count += 1
+                else:
+                    # 数据已存在，被忽略
+                    skip_count += 1
 
             except Exception as e:
                 print(f"处理Steam数据失败: {e}")
                 continue
 
-        print(f"Steam插入完成: 总成功 {success_count} 条, 跳过 {skip_count} 条")
+        print(f"Steam插入完成: 总成功 {success_count} 条, 跳过 {skip_count} 条（重复）")
         return success_count
