@@ -17,11 +17,19 @@ class WeaponClassIDModel(BaseModel):
 
     @classmethod
     def get_fields(cls) -> Dict[str, Dict[str, Any]]:
+        # 注意：字段顺序必须与数据库表的实际列顺序一致！
+        # 数据库列顺序：steam_hash_name, market_listing_item_name, yyyp_id, buff_id, steam_id, 
+        #              weapon_type, weapon_name, item_name, float_range, Rarity, yyyp_class_name, buff_class_name
         return {
             'steam_hash_name': {
                 'type': 'TEXT',
                 'primary_key': True,
                 'not_null': True,
+                'default': None
+            },
+            'market_listing_item_name': {
+                'type': 'TEXT',
+                'not_null': False,
                 'default': None
             },
             'yyyp_id': {
@@ -39,21 +47,6 @@ class WeaponClassIDModel(BaseModel):
             'steam_id': {
                 'type': 'INTEGER',
                 'primary_key': False,
-                'not_null': False,
-                'default': None
-            },
-            'yyyp_class_name': {
-                'type': 'TEXT',
-                'not_null': False,
-                'default': None
-            },
-            'buff_class_name': {
-                'type': 'TEXT',
-                'not_null': False,
-                'default': None
-            },
-            'market_listing_item_name': {
-                'type': 'TEXT',
                 'not_null': False,
                 'default': None
             },
@@ -78,6 +71,16 @@ class WeaponClassIDModel(BaseModel):
                 'default': None
             },
             'Rarity': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
+            'yyyp_class_name': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
+            'buff_class_name': {
                 'type': 'TEXT',
                 'not_null': False,
                 'default': None
