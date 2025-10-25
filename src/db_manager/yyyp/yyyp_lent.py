@@ -91,6 +91,11 @@ class YyypLentModel(BaseModel):
                 'type': 'INTEGER',
                 'not_null': False,
                 'default': None
+            },
+            'data_user': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
             }
         }
     
