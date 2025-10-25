@@ -96,6 +96,11 @@ class YyypLentModel(BaseModel):
                 'type': 'TEXT',
                 'not_null': False,
                 'default': None
+            },
+            'lenter_id': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
             }
         }
     

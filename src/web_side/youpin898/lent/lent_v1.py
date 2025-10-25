@@ -130,6 +130,7 @@ def insert_webside_lentdata():
         float_range = data['float_range']
         price = data['price']
         lent_user_name = data['buyer_user_name']
+        lenter_id = data.get('lenter_id', '')  # 租客ID
         status = data['status']
         orderSubStatusName = data['orderSubStatusName']
         status_sub = data.get('status_sub', '')  # 订单状态描述
@@ -155,6 +156,7 @@ def insert_webside_lentdata():
             float_range=float_range,
             price=price,
             lenter_name=lent_user_name,
+            lenter_id=lenter_id,
             status=status,
             status_sub=status_sub,
             last_status=orderSubStatusName,
