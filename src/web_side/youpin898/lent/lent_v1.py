@@ -99,6 +99,7 @@ def insert_webside_lentdata():
     lent_user_name = data['buyer_user_name']
     status = data['status']
     orderSubStatusName = data['orderSubStatusName']
+    status_sub = data.get('status_sub', '')  # 订单状态描述
     data_from = data['from']
     lean_start_time = data['lean_start_time']
     lean_end_time = data.get('lean_end_time')
@@ -120,9 +121,9 @@ def insert_webside_lentdata():
         lean_end_time_str = f"'{lean_end_time}'"
     
     sql = (f"INSERT INTO yyyp_lent (ID, weapon_name, item_name, weapon_float, float_range, price, lenter_name, "
-            f"status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days, data_user) "
+            f"status, status_sub, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days, data_user) "
             f"VALUES ('{ID}', '{weapon_name}', '{item_name}', {weapon_float_str}, '{float_range}', {price}, '{lent_user_name}',"
-            f"'{status}', '{orderSubStatusName}', '{data_from}', '{lean_start_time}', {lean_end_time_str}, {totalLeaseDays}, {max_Lease_Days}, '{data_user}');")
+            f"'{status}', '{status_sub}', '{orderSubStatusName}', '{data_from}', '{lean_start_time}', {lean_end_time_str}, {totalLeaseDays}, {max_Lease_Days}, '{data_user}');")
     
     a_status = Date_base().insert(sql)
     
