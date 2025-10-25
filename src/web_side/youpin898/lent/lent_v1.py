@@ -125,6 +125,7 @@ def insert_webside_lentdata():
         # 提取数据
         ID = data['ID']
         weapon_name = data['weapon_name']
+        weapon_type = data['weapon_type']
         item_name = data['item_name']
         weapon_float = data.get('weapon_float')
         float_range = data['float_range']
@@ -151,6 +152,7 @@ def insert_webside_lentdata():
         lent_record = YyypLentModel(
             ID=ID,
             weapon_name=weapon_name,
+            weapon_type=weapon_type,
             item_name=item_name,
             weapon_float=weapon_float,
             float_range=float_range,

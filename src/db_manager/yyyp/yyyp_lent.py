@@ -27,6 +27,11 @@ class YyypLentModel(BaseModel):
                 'not_null': False,
                 'default': None
             },
+            'weapon_type': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None
+            },
             'item_name': {
                 'type': 'TEXT',
                 'not_null': False,

@@ -18,7 +18,7 @@ def countLentNumber():
 
 @webLentV1.route('/getLentData/<int:min>/<int:max>', methods=['get'])
 def getLentData(min, max):
-    sql = f"SELECT ID, weapon_name, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent ORDER BY lean_start_time DESC LIMIT {max} OFFSET {min};"
+    sql = f"SELECT ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent ORDER BY lean_start_time DESC LIMIT {max} OFFSET {min};"
     result = Date_base().select(sql)
     if result and len(result) == 2:
         flag, data = result
@@ -28,7 +28,7 @@ def getLentData(min, max):
 
 @webLentV1.route('/selectLentWeaponName/<itemName>', methods=['get'])
 def selectLentWeaponName(itemName):
-    sql = f"SELECT ID, weapon_name, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%';"
+    sql = f"SELECT ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent WHERE item_name LIKE '%{itemName}%' OR weapon_name LIKE '%{itemName}%';"
     result = Date_base().select(sql)
     if result and len(result) == 2:
         flag, data = result
@@ -39,9 +39,9 @@ def selectLentWeaponName(itemName):
 @webLentV1.route('/getLentDataByStatus/<status>/<int:min>/<int:max>', methods=['get'])
 def getLentDataByStatus(status, min, max):
     if status == 'all':
-        sql = f"SELECT ID, weapon_name, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent ORDER BY lean_start_time DESC LIMIT {max} OFFSET {min};"
+        sql = f"SELECT ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent ORDER BY lean_start_time DESC LIMIT {max} OFFSET {min};"
     else:
-        sql = f"SELECT ID, weapon_name, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent WHERE status = '{status}' ORDER BY lean_start_time DESC LIMIT {max} OFFSET {min};"
+        sql = f"SELECT ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days FROM yyyp_lent WHERE status = '{status}' ORDER BY lean_start_time DESC LIMIT {max} OFFSET {min};"
     result = Date_base().select(sql)
     if result and len(result) == 2:
         flag, data = result
@@ -83,7 +83,7 @@ def getLentStats():
 @webLentV1.route('/getLentDataByTimeRange/<start_date>/<end_date>/<int:min>/<int:max>', methods=['GET'])
 def getLentDataByTimeRange(start_date, end_date, min, max):
     sql = f"""
-    SELECT ID, weapon_name, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days 
+    SELECT ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days 
     FROM yyyp_lent 
     WHERE DATE(lean_start_time) >= '{start_date}' AND DATE(lean_start_time) <= '{end_date}'
     ORDER BY lean_start_time DESC 
@@ -131,7 +131,7 @@ def getLentStatsByTimeRange(start_date, end_date):
 @webLentV1.route('/searchLentByTimeRange/<start_date>/<end_date>', methods=['GET'])
 def searchLentByTimeRange(start_date, end_date):
     sql = f"""
-    SELECT ID, weapon_name, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days 
+    SELECT ID, weapon_name, weapon_type, item_name, weapon_float, float_range, price, lenter_name, status, last_status, \"from\", lean_start_time, lean_end_time, total_Lease_Days, max_Lease_Days 
     FROM yyyp_lent 
     WHERE DATE(lean_start_time) >= '{start_date}' AND DATE(lean_start_time) <= '{end_date}'
     ORDER BY lean_start_time DESC;
