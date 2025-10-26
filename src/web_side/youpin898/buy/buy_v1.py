@@ -72,7 +72,7 @@ def updateBuyData():
         weapon_status = data['weapon_status']
         
         # 更新yyyp_buy表
-        yyyp_record = YyypBuyModel.find_by_id(weapon_ID)
+        yyyp_record = YyypBuyModel.find_by_id(ID=weapon_ID)
         if yyyp_record:
             yyyp_record.status = weapon_status
             yyyp_saved = yyyp_record.save()

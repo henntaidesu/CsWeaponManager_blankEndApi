@@ -66,14 +66,14 @@ def updateOrderStatus():
         status_sub = data.get('state_sub')
         
         # 更新buff_sell表
-        buff_record = BuffSellModel.find_by_id(item_id)
+        buff_record = BuffSellModel.find_by_id(ID=item_id)
         if buff_record:
             buff_record.status = status
             buff_record.status_sub = status_sub
             buff_record.save()
         
         # 更新通用sell表
-        sell_record = SellModel.find_by_id(item_id)
+        sell_record = SellModel.find_by_id(ID=item_id)
         if sell_record:
             sell_record.status = status
             sell_record.status_sub = status_sub
