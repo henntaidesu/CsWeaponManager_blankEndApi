@@ -42,16 +42,22 @@ def selectApexTime(steamId):
     用于判断是否有新数据需要同步
     """
     try:
-        # 使用模型查询，按时间倒序排列，取第一条
-        records = YyypLentModel.find_all(
-            where="data_user = ?",
-            params=(steamId,)
-        )
+        # 直接使用 SQL 查询，按 lean_start_time 降序排列，取第一条
+        from src.db_manager.database import DatabaseManager
+        db = DatabaseManager()
         
-        if records:
-            # 找出最新的记录
-            latest_record = max(records, key=lambda x: x.lean_start_time or '2000-01-01 00:00:00')
-            apex_time = latest_record.lean_start_time
+        sql = """
+            SELECT lean_start_time 
+            FROM yyyp_lent 
+            WHERE data_user = ? 
+            ORDER BY lean_start_time DESC 
+            LIMIT 1
+        """
+        
+        result = db.execute_query(sql, (steamId,))
+        
+        if result and len(result) > 0:
+            apex_time = result[0][0]
             return jsonify(apex_time), 200
         else:
             # 如果没有数据，返回一个很早的时间
