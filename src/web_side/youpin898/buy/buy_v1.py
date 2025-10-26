@@ -80,7 +80,7 @@ def updateBuyData():
             return "记录不存在", 404
         
         # 更新通用buy表
-        buy_records = BuyModel.find_all("ID LIKE ? AND from = 'yyyp'", (f"{weapon_ID}%",))
+        buy_records = BuyModel.find_all("ID LIKE ? AND [from] = 'yyyp'", (f"{weapon_ID}%",))
         for buy_record in buy_records:
             buy_record.status = weapon_status
             buy_record.save()
