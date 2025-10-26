@@ -131,11 +131,11 @@ def getFloatRanges():
 
 @webLentPageV1.route('/searchByTypeAndWear', methods=['POST'])
 def searchByTypeAndWear():
-    """根据类型和磨损等级搜索租赁记录"""
+    """根据类型和磨损等级搜索租赁记录（支持多选）"""
     try:
         data = request.get_json()
-        weapon_type = data.get('weapon_type', '')
-        float_range = data.get('float_range', '')
+        weapon_types = data.get('weapon_type', [])  # 现在接收数组
+        float_ranges = data.get('float_range', [])  # 现在接收数组
         page = data.get('page', 1)
         page_size = data.get('page_size', 20)
         
@@ -143,13 +143,17 @@ def searchByTypeAndWear():
         conditions = []
         params = []
         
-        if weapon_type:
-            conditions.append("weapon_type = ?")
-            params.append(weapon_type)
+        # 处理武器类型（多选）
+        if weapon_types and len(weapon_types) > 0:
+            placeholders = ','.join(['?' for _ in weapon_types])
+            conditions.append(f"weapon_type IN ({placeholders})")
+            params.extend(weapon_types)
             
-        if float_range:
-            conditions.append("float_range = ?")
-            params.append(float_range)
+        # 处理磨损等级（多选）
+        if float_ranges and len(float_ranges) > 0:
+            placeholders = ','.join(['?' for _ in float_ranges])
+            conditions.append(f"float_range IN ({placeholders})")
+            params.extend(float_ranges)
         
         # 如果没有条件，返回空结果
         if not conditions:
@@ -227,23 +231,27 @@ def searchByTypeAndWear():
 
 @webLentPageV1.route('/getStatsByTypeAndWear', methods=['POST'])
 def getStatsByTypeAndWear():
-    """获取按类型和磨损等级筛选的统计数据"""
+    """获取按类型和磨损等级筛选的统计数据（支持多选）"""
     try:
         data = request.get_json()
-        weapon_type = data.get('weapon_type', '')
-        float_range = data.get('float_range', '')
+        weapon_types = data.get('weapon_type', [])  # 现在接收数组
+        float_ranges = data.get('float_range', [])  # 现在接收数组
         
         # 构建查询条件
         conditions = []
         params = []
         
-        if weapon_type:
-            conditions.append("weapon_type = ?")
-            params.append(weapon_type)
+        # 处理武器类型（多选）
+        if weapon_types and len(weapon_types) > 0:
+            placeholders = ','.join(['?' for _ in weapon_types])
+            conditions.append(f"weapon_type IN ({placeholders})")
+            params.extend(weapon_types)
             
-        if float_range:
-            conditions.append("float_range = ?")
-            params.append(float_range)
+        # 处理磨损等级（多选）
+        if float_ranges and len(float_ranges) > 0:
+            placeholders = ','.join(['?' for _ in float_ranges])
+            conditions.append(f"float_range IN ({placeholders})")
+            params.extend(float_ranges)
         
         where_clause = ""
         if conditions:
