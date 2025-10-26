@@ -8,13 +8,18 @@ youpin898LentV1 = Blueprint('youpin898LentV1', __name__)
 
 @youpin898LentV1.route('/getNowLentingList', methods=['get'])
 def getNowLentingList():
-    """获取当前租赁中的订单列表（不包括已完成的）"""
+    """获取当前需要更新状态的租赁订单列表（租赁中、归还中等进行中的订单）"""
     try:
-        records = YyypLentModel.find_all("status NOT IN ('完成')")
+        # 只查询正在进行中的订单状态
+        records = YyypLentModel.find_all(
+            where="status IN ('租赁中', '归还中', '白玩中', '待发货', '待收货')"
+        )
         data = [[record.ID] for record in records]
         return jsonify(data), 200
     except Exception as e:
         print(f"查询租借列表失败: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify([]), 500  
 
 @youpin898LentV1.route('/getTimeOutLent', methods=['get'])
