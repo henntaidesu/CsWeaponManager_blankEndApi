@@ -87,10 +87,12 @@ def updateLentData():
     try:
         data = request.get_json()
         ID = data['ID']
-        status = data['status']
-        orderSubStatusName = data['orderSubStatusName']
+        status = data['status']  # orderStatusName -> status
+        status_sub = data.get('status_sub', '')  # orderStatusDesc -> status_sub
+        orderSubStatusName = data['orderSubStatusName']  # orderSubStatusName -> last_status
         lean_end_time = data['lean_end_time']
         totalLeaseDays = data['totalLeaseDays']
+        leaseMaxDays = data.get('leaseMaxDays')  # 可选字段
         
         # 查找现有记录
         lent_record = YyypLentModel.find_by_id(ID=ID)
@@ -98,10 +100,15 @@ def updateLentData():
             return 'update_error', 404
         
         # 更新字段
-        lent_record.status = status
-        lent_record.last_status = orderSubStatusName
+        lent_record.status = status  # orderStatusName
+        lent_record.status_sub = status_sub  # orderStatusDesc
+        lent_record.last_status = orderSubStatusName  # orderSubStatusName
         lent_record.lean_end_time = lean_end_time
         lent_record.total_Lease_Days = totalLeaseDays
+        
+        # 如果提供了 leaseMaxDays，则更新
+        if leaseMaxDays is not None:
+            lent_record.max_Lease_Days = leaseMaxDays
         
         # 保存更新
         if lent_record.save():
