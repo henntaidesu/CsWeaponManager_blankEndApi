@@ -255,8 +255,9 @@ class WeaponClassIDModel(BaseModel):
     @classmethod
     def batch_update_buff_id(cls, weapon_list: List[Dict[str, Any]]) -> int:
         """
-        BUFF专用：批量更新或插入buff_id和buff_class_name（UPSERT操作）
-        :param weapon_list: 武器数据列表，每项包含 buff_id, steam_hash_name, buff_class_name
+        BUFF专用：批量更新或插入buff_id和相关字段（UPSERT操作）
+        :param weapon_list: 武器数据列表，每项包含 buff_id, steam_hash_name, market_listing_item_name, 
+                           buff_class_name, weapon_type, weapon_name, item_name
         :return: 成功处理的数量
         """
         success_count = 0
@@ -269,7 +270,11 @@ class WeaponClassIDModel(BaseModel):
             try:
                 buff_id = weapon_data.get('buff_id')
                 steam_hash_name = weapon_data.get('steam_hash_name')
+                market_listing_item_name = weapon_data.get('market_listing_item_name')
                 buff_class_name = weapon_data.get('buff_class_name')
+                weapon_type = weapon_data.get('weapon_type', '')
+                weapon_name = weapon_data.get('weapon_name', '')
+                item_name = weapon_data.get('item_name', '')
 
                 if not buff_id:
                     print(f"BUFF数据缺少buff_id字段，跳过")
@@ -281,22 +286,31 @@ class WeaponClassIDModel(BaseModel):
                     skip_count += 1
                     continue
 
-                # 先尝试 UPDATE
-                sql_update = f'UPDATE {cls.get_table_name()} SET [buff_id] = ?, [buff_class_name] = ? WHERE [steam_hash_name] = ?'
-                affected_rows = db.execute_update(sql_update, (buff_id, buff_class_name, steam_hash_name))
-
-                if affected_rows > 0:
-                    # 更新成功
-                    success_count += 1
-                    update_count += 1
-                    print(f"✅ 更新BUFF数据成功: buff_id={buff_id}, buff_class_name={buff_class_name}, steam_hash_name={steam_hash_name}")
+                # 先查询是否存在匹配的记录
+                existing_records = cls.find_by_steam_hash_name(steam_hash_name)
+                
+                if existing_records:
+                    # 记录已存在，执行 UPDATE
+                    # 如果steam_hash_name匹配成功，则只写入buff_id和buff_class_name
+                    sql_update = f'UPDATE {cls.get_table_name()} SET [buff_id] = ?, [buff_class_name] = ? WHERE [steam_hash_name] = ?'
+                    affected_rows = db.execute_update(sql_update, (buff_id, buff_class_name, steam_hash_name))
+                    
+                    if affected_rows > 0:
+                        success_count += 1
+                        update_count += 1
+                        print(f"✅ 更新BUFF数据成功 (steam_hash_name匹配): buff_id={buff_id}, steam_hash_name={steam_hash_name}")
                 else:
-                    # 未找到记录，执行 INSERT
-                    sql_insert = f'INSERT INTO {cls.get_table_name()} ([steam_hash_name], [buff_id], [buff_class_name]) VALUES (?, ?, ?)'
-                    db.execute_insert(sql_insert, (steam_hash_name, buff_id, buff_class_name))
+                    # 记录不存在，执行 INSERT，写入所有字段
+                    sql_insert = f'''INSERT INTO {cls.get_table_name()} 
+                                    ([steam_hash_name], [market_listing_item_name], [buff_id], [buff_class_name], 
+                                     [weapon_type], [weapon_name], [item_name]) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)'''
+                    db.execute_insert(sql_insert, (steam_hash_name, market_listing_item_name, buff_id, 
+                                                   buff_class_name, weapon_type, weapon_name, item_name))
                     success_count += 1
                     insert_count += 1
-                    print(f"✅ 插入新BUFF数据: buff_id={buff_id}, buff_class_name={buff_class_name}, steam_hash_name={steam_hash_name}")
+                    print(f"✅ 插入新BUFF数据 (无steam_hash_name匹配): buff_id={buff_id}, steam_hash_name={steam_hash_name}, "
+                          f"weapon_type={weapon_type}, weapon_name={weapon_name}, item_name={item_name}")
 
             except Exception as e:
                 print(f"处理BUFF数据失败: buff_id={weapon_data.get('buff_id')}, 错误: {e}")

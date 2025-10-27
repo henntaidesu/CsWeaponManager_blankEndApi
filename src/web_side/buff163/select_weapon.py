@@ -134,15 +134,17 @@ def searchWeapon():
 @buff163SelectWeaponV1.route('/batchInsertOrUpdate', methods=['POST'])
 def batchInsertOrUpdate():
     """
-    BUFF专用：批量更新buff_id（只更新buff_id字段）
+    BUFF专用：批量更新或插入BUFF武器数据
 
     功能说明：
-    - 接收数据格式: [{"buff_id": 123, "en_weapon_name": "AK-47 | ..."}]
-    - 通过 en_weapon_name (market_hash_name) 匹配已有记录
-    - 只更新匹配到记录的 buff_id 字段
-    - 其他字段（yyyp_id、weapon_name、item_name等）完全不触碰
-    - 不会创建新的武器记录
-    - 未匹配的BUFF数据会被跳过
+    - 接收数据格式: [{"buff_id": 123, "steam_hash_name": "★ Butterfly Knife | Fade (Factory New)", 
+                      "market_listing_item_name": "蝴蝶刀（★） | 渐变之色 (崭新出厂)",
+                      "buff_class_name": "weapon_knife_butterfly", 
+                      "weapon_type": "刀具", "weapon_name": "蝴蝶刀", "item_name": "渐变之色"}]
+    - 通过 steam_hash_name 匹配已有记录
+    - 如果匹配成功：只更新 buff_id 和 buff_class_name 字段
+    - 如果匹配失败：插入新记录，包含所有字段（steam_hash_name, market_listing_item_name, 
+                    buff_id, buff_class_name, weapon_type, weapon_name, item_name）
     """
     try:
         data = request.get_json()
