@@ -28,13 +28,15 @@ def getWeaponTypes():
             END,
             weapon_type
         """
-        success, result = db.select(sql)
+        result = db.execute_query(sql)
         
         weapon_types = []
-        if success and result:
+        if result:
             for row in result:
                 if row[0]:  # 确保不是空值
                     weapon_types.append(row[0])
+        
+        print(f"获取到的武器类型: {weapon_types}")
         
         return jsonify({
             'success': True,
@@ -43,6 +45,8 @@ def getWeaponTypes():
         
     except Exception as e:
         print(f"获取武器类型失败: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': str(e),
@@ -67,13 +71,15 @@ def getStatusList():
             END,
             status
         """
-        success, result = db.select(sql)
+        result = db.execute_query(sql)
         
         status_list = []
-        if success and result:
+        if result:
             for row in result:
                 if row[0]:  # 确保不是空值
                     status_list.append(row[0])
+        
+        print(f"获取到的状态列表: {status_list}")
         
         return jsonify({
             'success': True,
@@ -82,6 +88,8 @@ def getStatusList():
         
     except Exception as e:
         print(f"获取状态列表失败: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': str(e),
@@ -108,13 +116,15 @@ def getFloatRanges():
             END,
             float_range
         """
-        success, result = db.select(sql)
+        result = db.execute_query(sql)
         
         float_ranges = []
-        if success and result:
+        if result:
             for row in result:
                 if row[0]:  # 确保不是空值
                     float_ranges.append(row[0])
+        
+        print(f"获取到的磨损等级: {float_ranges}")
         
         return jsonify({
             'success': True,
@@ -123,6 +133,8 @@ def getFloatRanges():
         
     except Exception as e:
         print(f"获取磨损等级失败: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': str(e),
