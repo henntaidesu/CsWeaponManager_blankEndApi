@@ -19,9 +19,9 @@ class ConfigModel(BaseModel):
         return {
             'dataID': {
                 'type': 'INTEGER',
-                'primary_key': False,
-                'not_null': False,
-                'default': None
+                'primary_key': True,
+                'autoincrement': True,
+                'not_null': True
             },
             'dataName': {
                 'type': 'TEXT',
