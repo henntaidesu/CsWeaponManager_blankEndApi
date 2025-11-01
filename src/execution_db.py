@@ -76,3 +76,16 @@ class Date_base:
             if "timed out" in str(e).lower():
                 self.print_log.write_log(f"连接数据库超时", 'error')
             self.print_log.write_log(sql, 'error')
+    
+    def execute_query(self, sql, params=()):
+        """执行查询语句（支持参数化查询）"""
+        try:
+            result = self.db.execute_query(sql, params)
+            return result
+        except Exception as e:
+            err2(e)
+            if "timed out" in str(e).lower():
+                self.print_log.write_log("连接数据库超时", 'error')
+            else:
+                self.print_log.write_log(f'{sql}', 'error')
+            return None

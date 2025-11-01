@@ -82,6 +82,12 @@ class SteamInventoryHistoryModel(BaseModel):
                 'not_null': False,
                 'default': None,
                 'comment': '交易类型：+ 或 -'
+            },
+            'data_user': {
+                'type': 'TEXT',
+                'not_null': False,
+                'default': None,
+                'comment': 'Steam用户ID'
             }
         }
     
@@ -103,6 +109,10 @@ class SteamInventoryHistoryModel(BaseModel):
             {
                 'name': 'steam_inventoryhistory_idx_weapon_type',
                 'columns': ['weapon_type']
+            },
+            {
+                'name': 'steam_inventoryhistory_idx_data_user',
+                'columns': ['data_user']
             }
         ]
 

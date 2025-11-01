@@ -2,7 +2,9 @@ from flask import jsonify, request, Blueprint
 from src.log import Log
 from src.execution_db import Date_base
 from src.read_conf import read_conf
+from src.db_manager.index.config import ConfigModel
 import requests
+import json
 
 
 configV1 = Blueprint('configV1', __name__)
@@ -25,3 +27,112 @@ def get_yyyp_config(key1, key2):
     sql = f"SELECT value FROM config WHERE key1 = '{key1}' and key2 = '{key2}'"
     flag, data = Date_base().select(sql)
     return jsonify(data), 200
+
+@configV1.route('/save', methods=['POST'])
+def save_config():
+    """保存或更新配置"""
+    try:
+        data = request.get_json()
+        data_name = data.get('dataName')
+        key1 = data.get('key1')
+        key2 = data.get('key2')
+        value = data.get('value')
+        
+        if not all([data_name, key1, key2, value]):
+            return jsonify({
+                'success': False,
+                'message': '缺少必要参数'
+            }), 400
+        
+        # 转义单引号，防止 SQL 错误
+        data_name_escaped = data_name.replace("'", "''")
+        key1_escaped = key1.replace("'", "''")
+        key2_escaped = key2.replace("'", "''")
+        value_escaped = value.replace("'", "''")
+        
+        # 检查是否存在同名配置
+        sql = f"SELECT dataID, dataName, key1, key2, value FROM config WHERE dataName = '{data_name_escaped}' AND key1 = '{key1_escaped}' AND key2 = '{key2_escaped}'"
+        flag, existing = Date_base().select(sql)
+        
+        if flag and existing and len(existing) > 0:
+            # 更新现有配置，existing[0] 是元组，第一个字段是 dataID
+            dataID = existing[0][0]
+            Log().write_log(f"更新现有配置，dataID: {dataID}", 'info')
+            update_sql = f"""
+                UPDATE config 
+                SET value = '{value_escaped}' 
+                WHERE dataID = {dataID}
+            """
+            Date_base().update(update_sql)
+        else:
+            # 插入新配置
+            insert_sql = f"""
+                INSERT INTO config (dataName, key1, key2, value, status) 
+                VALUES ('{data_name_escaped}', '{key1_escaped}', '{key2_escaped}', '{value_escaped}', '1')
+            """
+            Date_base().insert(insert_sql)
+        
+        return jsonify({
+            'success': True,
+            'message': '保存成功'
+        }), 200
+        
+    except Exception as e:
+        Log().write_log(f"保存配置失败: {str(e)}", 'error')
+        return jsonify({
+            'success': False,
+            'message': f'保存失败: {str(e)}'
+        }), 500
+
+@configV1.route('/list', methods=['GET'])
+def list_configs():
+    """获取配置列表"""
+    try:
+        key1 = request.args.get('key1')
+        key2 = request.args.get('key2')
+        
+        if not key1 or not key2:
+            return jsonify({
+                'success': False,
+                'message': '缺少必要参数'
+            }), 400
+        
+        sql = f"""
+            SELECT dataID as id, dataName, key1, key2, value, status, steamID, 
+                   datetime('now') as updated_at
+            FROM config 
+            WHERE key1 = '{key1}' AND key2 = '{key2}'
+            ORDER BY dataID DESC
+        """
+        flag, data = Date_base().select(sql)
+        
+        return jsonify({
+            'success': True,
+            'data': data if data else []
+        }), 200
+        
+    except Exception as e:
+        Log().write_log(f"获取配置列表失败: {str(e)}", 'error')
+        return jsonify({
+            'success': False,
+            'message': f'获取失败: {str(e)}'
+        }), 500
+
+@configV1.route('/delete/<int:config_id>', methods=['DELETE'])
+def delete_config(config_id):
+    """删除配置"""
+    try:
+        sql = f"DELETE FROM config WHERE dataID = {config_id}"
+        Date_base().delete(sql)
+        
+        return jsonify({
+            'success': True,
+            'message': '删除成功'
+        }), 200
+        
+    except Exception as e:
+        Log().write_log(f"删除配置失败: {str(e)}", 'error')
+        return jsonify({
+            'success': False,
+            'message': f'删除失败: {str(e)}'
+        }), 500

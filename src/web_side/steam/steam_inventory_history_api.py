@@ -109,8 +109,12 @@ def insert_inventory_history():
         if not item_ID:
             return jsonify({'success': False, 'error': '缺少ID参数'}), 400
         
-        if not items or not isinstance(items, list):
+        if items is None or not isinstance(items, list):
             return jsonify({'success': False, 'error': '无效的items数据'}), 400
+        
+        # items可以为空数组（空交易记录）
+        if len(items) == 0:
+            print(f"[信息] 空交易记录，ID: {item_ID}，无物品")
         
         # 1. 首先检查索引表中是否已存在该ID
         existing_index = SteamInventoryHistoryIndexModel.find_by_id(ID=item_ID)
@@ -146,6 +150,7 @@ def insert_inventory_history():
                 inventory_record.weapon_type = i.get('weapon_type')
                 inventory_record.float_range = i.get('float_range')
                 inventory_record.trade_type = trade_type
+                inventory_record.data_user = data_user
                 
                 # 保存记录
                 saved = inventory_record.save()
@@ -165,8 +170,8 @@ def insert_inventory_history():
                 print(f"  Item数据: {json.dumps(i, ensure_ascii=False, indent=2)}")
                 print(f"  堆栈跟踪:\n{traceback.format_exc()}")
         
-        # 4. 如果有物品成功插入，则在索引表中创建记录
-        if success_count > 0:
+        # 4. 如果有物品成功插入或items为空，则在索引表中创建记录
+        if success_count > 0 or len(items) == 0:
             try:
                 index_record = SteamInventoryHistoryIndexModel()
                 index_record.ID = item_ID
@@ -177,7 +182,10 @@ def insert_inventory_history():
                 index_saved = index_record.save()
                 
                 if index_saved:
-                    print(f"[成功] 索引记录创建成功: ID={item_ID}")
+                    if len(items) == 0:
+                        print(f"[成功] 空交易记录索引创建成功: ID={item_ID}")
+                    else:
+                        print(f"[成功] 索引记录创建成功: ID={item_ID}")
                 else:
                     print(f"[警告] 索引记录创建失败: ID={item_ID}")
                     
@@ -188,15 +196,17 @@ def insert_inventory_history():
                 print(f"  堆栈跟踪:\n{traceback.format_exc()}")
         
         # 5. 返回结果
-        if success_count > 0:
+        if success_count > 0 or len(items) == 0:
+            message = '空交易记录已保存' if len(items) == 0 else f'成功插入{success_count}条记录'
             return jsonify({
                 'success': True,
-                'message': f'成功插入{success_count}条记录',
+                'message': message,
                 'data': {
                     'ID': item_ID,
                     'success_count': success_count,
                     'failed_count': failed_count,
-                    'total_count': len(items)
+                    'total_count': len(items),
+                    'is_empty': len(items) == 0
                 }
             }), 200
         else:
