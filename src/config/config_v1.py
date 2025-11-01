@@ -91,24 +91,48 @@ def list_configs():
         key1 = request.args.get('key1')
         key2 = request.args.get('key2')
         
-        if not key1 or not key2:
+        # 构建WHERE条件
+        where_conditions = []
+        if key1:
+            where_conditions.append(f"key1 = '{key1}'")
+        if key2:
+            where_conditions.append(f"key2 = '{key2}'")
+        
+        if not where_conditions:
             return jsonify({
                 'success': False,
-                'message': '缺少必要参数'
+                'message': '至少需要提供 key1 或 key2 参数'
             }), 400
         
+        where_clause = ' AND '.join(where_conditions)
+        
         sql = f"""
-            SELECT dataID as id, dataName, key1, key2, value, status, steamID, 
+            SELECT dataID, dataName, key1, key2, value, status, steamID, 
                    datetime('now') as updated_at
             FROM config 
-            WHERE key1 = '{key1}' AND key2 = '{key2}'
+            WHERE {where_clause}
             ORDER BY dataID DESC
         """
-        flag, data = Date_base().select(sql)
+        flag, result = Date_base().select(sql)
+        
+        # 将元组列表转换为字典列表
+        data = []
+        if result:
+            for row in result:
+                data.append({
+                    'id': row[0],           # dataID
+                    'dataName': row[1],     # dataName
+                    'key1': row[2],         # key1
+                    'key2': row[3],         # key2
+                    'value': row[4],        # value
+                    'status': row[5],       # status
+                    'steamID': row[6],      # steamID
+                    'updated_at': row[7]    # updated_at
+                })
         
         return jsonify({
             'success': True,
-            'data': data if data else []
+            'data': data
         }), 200
         
     except Exception as e:
