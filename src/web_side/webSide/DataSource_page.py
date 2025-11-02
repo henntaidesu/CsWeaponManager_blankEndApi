@@ -46,7 +46,7 @@ def get_datasources():
                         'config': {},
                         'status': status,
                         'enabled': status == '1',
-                        'lastUpdate': datetime.now().isoformat(),
+                        'lastUpdate': None,  # 初始化为None，后面从config中提取
                         'updateFreq': '15min',
                         'steamID': ''  # 初始化为空，后面从config或字段中提取
                     }
@@ -73,9 +73,31 @@ def get_datasources():
                                 if extracted_steam_id:
                                     datasource_groups[key]['steamID'] = extracted_steam_id
                             
+                            # 提取lastUpdate时间
+                            if 'lastUpdate' in config_json and config_json['lastUpdate']:
+                                datasource_groups[key]['lastUpdate'] = config_json['lastUpdate']
+                            else:
+                                # 如果旧数据没有lastUpdate，自动添加并更新到数据库
+                                from datetime import datetime
+                                current_time = datetime.now().isoformat()
+                                datasource_groups[key]['lastUpdate'] = current_time
+                                config_json['lastUpdate'] = current_time
+                                
+                                # 更新数据库中的配置
+                                try:
+                                    updated_value = json.dumps(config_json).replace("'", "''")
+                                    update_sql = f"UPDATE config SET value = '{updated_value}' WHERE dataID = {data_id} AND key2 = 'config'"
+                                    db.update(update_sql)
+                                    print(f"[自动迁移] 为 dataID={data_id} ({data_name}) 添加 lastUpdate: {current_time}")
+                                except Exception as update_error:
+                                    print(f"[自动迁移] 更新 lastUpdate 失败: {update_error}")
+                            
                             # 为悠悠有品配置添加yyyp_前缀保持前端兼容性
                             if key1 == 'youpin':
                                 for config_key, config_value in config_json.items():
+                                    # 跳过lastUpdate，不存储到config中
+                                    if config_key == 'lastUpdate':
+                                        continue
                                     # 检查key是否已经有yyyp_前缀，避免重复添加
                                     if config_key.startswith('yyyp_'):
                                         # 已经有前缀，直接使用
@@ -84,8 +106,10 @@ def get_datasources():
                                         # 没有前缀，添加前缀
                                         datasource_groups[key]['config'][f"yyyp_{config_key}"] = config_value
                             else:
-                                # 其他数据源直接使用配置项
-                                datasource_groups[key]['config'].update(config_json)
+                                # 其他数据源直接使用配置项（跳过lastUpdate）
+                                for config_key, config_value in config_json.items():
+                                    if config_key != 'lastUpdate':
+                                        datasource_groups[key]['config'][config_key] = config_value
                     except json.JSONDecodeError:
                         # JSON解析失败，忽略该配置
                         pass

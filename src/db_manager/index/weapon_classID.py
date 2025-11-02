@@ -198,16 +198,27 @@ class WeaponClassIDModel(BaseModel):
     def batch_insert_or_update(cls, weapon_list: List[Dict[str, Any]], platform: str = 'yyyp') -> int:
         """
         批量插入或更新武器数据（yyyp和steam平台专用）
+        
+        悠悠有品逻辑：
+        1. 先通过 steam_hash_name 查找记录
+        2. 如果找到：只更新 yyyp_id 和 yyyp_class_name
+        3. 如果未找到：插入全部字段（包括 steam_hash_name, market_listing_item_name, yyyp_id 等）
+        
         :param weapon_list: 武器数据列表
         :param platform: 平台标识 ('yyyp', 'steam')
         :return: 成功处理的数量
         """
         success_count = 0
+        update_count = 0
+        insert_count = 0
+        skip_count = 0
+        
         id_field_map = {
             'yyyp': 'yyyp_id',
             'steam': 'steam_id'
         }
         id_field = id_field_map.get(platform, 'yyyp_id')
+        db = cls().db
 
         for weapon_data in weapon_list:
             try:
@@ -218,31 +229,81 @@ class WeaponClassIDModel(BaseModel):
                 platform_id = weapon_data.get(id_field)
                 if not platform_id:
                     print(f"武器数据缺少{id_field}字段，跳过")
+                    skip_count += 1
                     continue
 
-                # 根据平台查询是否已存在
-                existing_list = None
-
+                # 悠悠有品平台：优先通过 steam_hash_name 查找
                 if platform == 'yyyp':
-                    existing_list = cls.find_by_yyyp_id(platform_id)
-                elif platform == 'steam':
-                    existing_list = cls.find_by_steam_id(platform_id)
-
-                existing = existing_list[0] if existing_list else None
-
-                if existing:
-                    # 更新现有记录（更新所有字段）
-                    for key, value in weapon_data.items():
-                        if hasattr(existing, key):
-                            setattr(existing, key, value)
-
-                    if existing.save():
-                        success_count += 1
-                else:
+                    # 获取 CommodityHashName (对应 steam_hash_name)
+                    steam_hash_name = weapon_data.get('en_weapon_name') or weapon_data.get('steam_hash_name')
+                    
+                    if steam_hash_name:
+                        # 先通过 steam_hash_name 查找
+                        existing_records = cls.find_by_steam_hash_name(steam_hash_name)
+                        
+                        if existing_records:
+                            # 记录已存在，只更新 yyyp_id 和 yyyp_class_name
+                            yyyp_class_name = weapon_data.get('yyyp_class_name', '')
+                            sql_update = f'UPDATE {cls.get_table_name()} SET [yyyp_id] = ?, [yyyp_class_name] = ? WHERE [steam_hash_name] = ?'
+                            affected_rows = db.execute_update(sql_update, (platform_id, yyyp_class_name, steam_hash_name))
+                            
+                            if affected_rows > 0:
+                                success_count += 1
+                                update_count += 1
+                                print(f"✅ 更新悠悠有品数据成功 (steam_hash_name匹配): yyyp_id={platform_id}, steam_hash_name={steam_hash_name}")
+                            continue
+                    
+                    # 如果没有 steam_hash_name 或未找到匹配记录，插入新记录
+                    # 需要映射字段名：en_weapon_name -> steam_hash_name, CommodityName -> market_listing_item_name
+                    insert_data = {}
+                    if 'en_weapon_name' in weapon_data:
+                        insert_data['steam_hash_name'] = weapon_data['en_weapon_name']
+                    elif 'steam_hash_name' in weapon_data:
+                        insert_data['steam_hash_name'] = weapon_data['steam_hash_name']
+                    
+                    if 'CommodityName' in weapon_data:
+                        insert_data['market_listing_item_name'] = weapon_data['CommodityName']
+                    elif 'market_listing_item_name' in weapon_data:
+                        insert_data['market_listing_item_name'] = weapon_data['market_listing_item_name']
+                    
+                    # 复制其他字段
+                    for key in ['yyyp_id', 'yyyp_class_name', 'weapon_type', 'weapon_name', 'item_name', 'float_range', 'Rarity']:
+                        if key in weapon_data:
+                            insert_data[key] = weapon_data[key]
+                    
+                    # 检查是否有必需的主键
+                    if 'steam_hash_name' not in insert_data or not insert_data['steam_hash_name']:
+                        print(f"悠悠有品数据缺少 steam_hash_name 字段，跳过: yyyp_id={platform_id}")
+                        skip_count += 1
+                        continue
+                    
                     # 插入新记录
-                    new_weapon = cls(**weapon_data)
+                    new_weapon = cls(**insert_data)
                     if new_weapon.save():
                         success_count += 1
+                        insert_count += 1
+                        print(f"✅ 插入新悠悠有品数据: yyyp_id={platform_id}, steam_hash_name={insert_data['steam_hash_name']}")
+                
+                # Steam平台：保持原有逻辑
+                elif platform == 'steam':
+                    existing_list = cls.find_by_steam_id(platform_id)
+                    existing = existing_list[0] if existing_list else None
+
+                    if existing:
+                        # 更新现有记录（更新所有字段）
+                        for key, value in weapon_data.items():
+                            if hasattr(existing, key):
+                                setattr(existing, key, value)
+
+                        if existing.save():
+                            success_count += 1
+                            update_count += 1
+                    else:
+                        # 插入新记录
+                        new_weapon = cls(**weapon_data)
+                        if new_weapon.save():
+                            success_count += 1
+                            insert_count += 1
 
             except Exception as e:
                 print(f"处理武器数据失败 ({id_field}: {weapon_data.get(id_field)}): {e}")
@@ -250,6 +311,7 @@ class WeaponClassIDModel(BaseModel):
                 print(f"错误堆栈: {traceback.format_exc()}")
                 continue
 
+        print(f"{platform}平台更新完成: 总成功 {success_count} 条 (更新 {update_count} 条, 插入 {insert_count} 条), 跳过 {skip_count} 条")
         return success_count
 
     @classmethod
