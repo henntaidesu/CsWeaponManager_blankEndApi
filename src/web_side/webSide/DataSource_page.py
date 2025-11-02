@@ -261,6 +261,9 @@ def update_datasource(data_id):
     try:
         data = request.get_json()
         
+        print(f"[update_datasource] 收到更新请求 dataID={data_id}")
+        print(f"[update_datasource] 请求数据: {data}")
+        
         if not data:
             return jsonify({
                 'success': False,
@@ -274,18 +277,23 @@ def update_datasource(data_id):
         
         # 获取配置JSON字符串
         config_json = data.get('configJson', '{}')
+        print(f"[update_datasource] 配置JSON: {config_json}")
+        
         config_json_escaped = config_json.replace("'", "''")
         
         # 从配置JSON中提取steamID（支持不同的字段名）
         steam_id = ''
         try:
             config_data = json.loads(config_json)
+            print(f"[update_datasource] 解析后的配置: {config_data}")
+            print(f"[update_datasource] lastUpdate 值: {config_data.get('lastUpdate')}")
+            
             # 尝试不同的字段名：steamID, steamId, yyyp_steamId
             steam_id = (config_data.get('steamID') or 
                        config_data.get('steamId') or 
                        config_data.get('yyyp_steamId') or '')
-        except:
-            pass
+        except Exception as parse_error:
+            print(f"[update_datasource] JSON 解析失败: {parse_error}")
         steam_id_escaped = steam_id.replace("'", "''") if steam_id else ''
         
         # 直接更新单条记录
@@ -295,7 +303,11 @@ def update_datasource(data_id):
         WHERE dataID = {data_id} AND key2 = 'config'
         """
         
+        print(f"[update_datasource] 执行SQL: {update_sql}")
+        
         result = db.update(update_sql)
+        
+        print(f"[update_datasource] 更新结果: {result}")
         
         if not result:
             return jsonify({
