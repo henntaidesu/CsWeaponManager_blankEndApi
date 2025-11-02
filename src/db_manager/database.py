@@ -5,6 +5,7 @@
 
 import sqlite3
 import os
+import sys
 import threading
 from contextlib import contextmanager
 from typing import List, Dict, Any, Optional, Tuple
@@ -32,14 +33,22 @@ class DatabaseManager:
             self._setup_database()
     
     def _get_db_path(self) -> str:
-        """获取数据库文件路径"""
+        """获取数据库文件路径（兼容 exe 打包）"""
         sqlite_file = self.config.config.get('database', 'sqlite_file', fallback='csweaponmanager.db')
         if not os.path.isabs(sqlite_file):
-            sqlite_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), sqlite_file)
+            # 获取基础路径
+            if getattr(sys, 'frozen', False):
+                # 打包后的 exe，使用 exe 所在目录
+                base_path = os.path.dirname(sys.executable)
+            else:
+                # 开发环境，使用 blankEndApi 目录
+                base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            sqlite_file = os.path.join(base_path, sqlite_file)
         return sqlite_file
     
     def _setup_database(self):
         """设置数据库配置"""
+        print(f"📁 数据库文件路径: {self.db_path}")
         with self.get_connection() as conn:
             # 启用 WAL 模式以减少锁定问题
             conn.execute('PRAGMA journal_mode=WAL')

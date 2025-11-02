@@ -2,6 +2,7 @@ import logging
 from src.now_time import today, now_time
 from src.read_conf import read_conf
 import sys
+import os
 
 
 class Log:
@@ -11,8 +12,27 @@ class Log:
         self.confing = read_conf()
         self.log_level = self.confing.log_level()
 
+    def _get_log_dir(self):
+        """获取日志目录路径（兼容 exe 打包）"""
+        if getattr(sys, 'frozen', False):
+            # 打包后的 exe，使用 exe 所在目录
+            base_path = os.path.dirname(sys.executable)
+        else:
+            # 开发环境，使用 blankEndApi 目录
+            base_path = os.path.dirname(os.path.dirname(__file__))
+        
+        log_dir = os.path.join(base_path, 'log')
+        
+        # 自动创建 log 目录
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+            print(f"📁 已创建日志目录: {log_dir}")
+        
+        return log_dir
+
     def setup_logger(self):
-        log_file = f"log/{self.day}.log"
+        log_dir = self._get_log_dir()
+        log_file = os.path.join(log_dir, f"{self.day}_blankEndApi.log")
         # 创建一个logger对象
         logger = logging.getLogger("my_logger")
         logger.setLevel(logging.DEBUG)
