@@ -3,8 +3,16 @@ from src.log import Log
 from src.execution_db import Date_base
 from src.now_time import today
 import json
+import threading
+import time
+from datetime import datetime, timedelta
+import requests
 
 dataSourcePage = Blueprint('dataSourcePage', __name__)
+
+# 全局定时器管理
+auto_collection_timers = {}
+auto_collection_lock = threading.Lock()
 
 
 @dataSourcePage.route('/api/datasource', methods=['GET'])
@@ -13,13 +21,13 @@ def get_datasources():
     try:
         db = Date_base()
         
-        # 尝试查询steamID字段，如果不存在则不查询该字段
+        # 只查询key2='config'的配置记录，过滤掉其他配置项（如last_collect等）
         try:
-            success, result = db.select("SELECT dataID, dataName, key1, key2, value, status, steamID FROM config ORDER BY dataID")
+            success, result = db.select("SELECT dataID, dataName, key1, key2, value, status, steamID FROM config WHERE key2 = 'config' ORDER BY dataID")
             has_steam_id_column = True
         except Exception as e:
             print(f"[WARNING] steamID列可能不存在，使用备用查询: {e}")
-            success, result = db.select("SELECT dataID, dataName, key1, key2, value, status FROM config ORDER BY dataID")
+            success, result = db.select("SELECT dataID, dataName, key1, key2, value, status FROM config WHERE key2 = 'config' ORDER BY dataID")
             has_steam_id_column = False
         
         if success:
@@ -364,6 +372,23 @@ def update_datasource(data_id):
                 'message': '更新数据源失败'
             }), 500
         
+        # 管理自动采集定时器
+        try:
+            config_data = json.loads(config_json)
+            auto_collect = config_data.get('autoCollect', False)
+            update_freq = config_data.get('updateFreq', '15min')
+            
+            if auto_collect and status == '1' and data_type in ['youpin', 'buff']:
+                # 启用自动采集
+                print(f"[update_datasource] 启动自动采集定时器: {data_name}")
+                start_auto_collection_timer(data_id, data_name, data_type, config_data, update_freq)
+            else:
+                # 停止自动采集
+                if stop_auto_collection_timer(data_id):
+                    print(f"[update_datasource] 停止自动采集定时器: {data_name}")
+        except Exception as timer_error:
+            print(f"[update_datasource] 管理定时器失败: {timer_error}")
+        
         return jsonify({
             'success': True,
             'message': '数据源更新成功'
@@ -562,3 +587,209 @@ def collect_datasource(data_id):
             'success': False,
             'message': f'采集失败: {str(e)}'
         }), 500
+
+
+# ==================== 自动采集定时器功能 ====================
+
+def get_update_freq_seconds(freq_str):
+    """将更新频率字符串转换为秒数"""
+    freq_map = {
+        '15min': 15 * 60,
+        '30min': 30 * 60,
+        '1hour': 60 * 60,
+        '2hours': 2 * 60 * 60,
+        '6hours': 6 * 60 * 60,
+        '12hours': 12 * 60 * 60,
+        '24hours': 24 * 60 * 60
+    }
+    return freq_map.get(freq_str, 15 * 60)  # 默认15分钟
+
+
+def update_last_update_time(data_id):
+    """更新数据源的lastUpdate时间"""
+    try:
+        db = Date_base()
+        
+        # 获取当前配置
+        select_sql = f"SELECT value FROM config WHERE dataID = {data_id} AND key2 = 'config'"
+        success, result = db.select(select_sql)
+        
+        if success and result:
+            value = result[0][0]
+            config_json = json.loads(value) if value else {}
+            
+            # 更新lastUpdate
+            config_json['lastUpdate'] = datetime.now().isoformat()
+            
+            # 保存回数据库
+            config_json_escaped = json.dumps(config_json).replace("'", "''")
+            update_sql = f"UPDATE config SET value = '{config_json_escaped}' WHERE dataID = {data_id} AND key2 = 'config'"
+            db.update(update_sql)
+            
+            print(f"[自动采集] 更新 lastUpdate: dataID={data_id}, time={config_json['lastUpdate']}")
+            return True
+    except Exception as e:
+        print(f"[自动采集] 更新 lastUpdate 失败: {e}")
+        return False
+
+
+def auto_collection_worker(data_id, data_name, data_type, config, update_freq):
+    """自动采集工作线程"""
+    freq_seconds = get_update_freq_seconds(update_freq)
+    spider_base_url = 'http://127.0.0.1:9002'  # 爬虫服务器地址
+    
+    print(f"[自动采集] 启动定时器: {data_name} (dataID={data_id}), 频率={update_freq} ({freq_seconds}秒)")
+    
+    while True:
+        try:
+            # 检查是否需要停止
+            with auto_collection_lock:
+                if data_id not in auto_collection_timers:
+                    print(f"[自动采集] 定时器已停止: {data_name} (dataID={data_id})")
+                    break
+                
+                timer_info = auto_collection_timers[data_id]
+                if not timer_info.get('enabled', False):
+                    print(f"[自动采集] 定时器已禁用: {data_name} (dataID={data_id})")
+                    break
+            
+            # 等待指定时间
+            print(f"[自动采集] 等待 {freq_seconds} 秒后执行下次采集: {data_name}")
+            time.sleep(freq_seconds)
+            
+            # 再次检查是否需要停止
+            with auto_collection_lock:
+                if data_id not in auto_collection_timers or not auto_collection_timers[data_id].get('enabled', False):
+                    break
+            
+            # 执行采集
+            print(f"[自动采集] 开始采集: {data_name} (dataID={data_id})")
+            
+            try:
+                if data_type == 'youpin':
+                    # 悠悠有品采集
+                    url = f"{spider_base_url}/youping898SpiderV1/newData"
+                    payload = {
+                        'phone': config.get('yyyp_phone', ''),
+                        'sessionid': config.get('yyyp_sessionid', ''),
+                        'token': config.get('yyyp_token', ''),
+                        'app_version': config.get('yyyp_app_version', ''),
+                        'app_type': config.get('yyyp_app_type', ''),
+                        'sleep_time': config.get('yyyp_sleep_time', 6000)
+                    }
+                    response = requests.post(url, json=payload, timeout=300)
+                    
+                elif data_type == 'buff':
+                    # BUFF采集
+                    url = f"{spider_base_url}/buffSpiderV1/NewData"
+                    payload = {
+                        'steamID': config.get('steamID', '')
+                    }
+                    response = requests.post(url, json=payload, timeout=300)
+                
+                else:
+                    print(f"[自动采集] 不支持的数据源类型: {data_type}")
+                    continue
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('success'):
+                        print(f"[自动采集] 采集成功: {data_name}")
+                        # 更新lastUpdate时间
+                        update_last_update_time(data_id)
+                    else:
+                        print(f"[自动采集] 采集失败: {data_name}, 错误: {result.get('message', '未知错误')}")
+                else:
+                    print(f"[自动采集] 采集失败: {data_name}, HTTP {response.status_code}")
+                    
+            except Exception as e:
+                print(f"[自动采集] 采集异常: {data_name}, 错误: {e}")
+                
+        except Exception as e:
+            print(f"[自动采集] 定时器异常: {data_name}, 错误: {e}")
+            break
+    
+    # 清理定时器
+    with auto_collection_lock:
+        if data_id in auto_collection_timers:
+            del auto_collection_timers[data_id]
+    
+    print(f"[自动采集] 定时器已退出: {data_name} (dataID={data_id})")
+
+
+def start_auto_collection_timer(data_id, data_name, data_type, config, update_freq):
+    """启动自动采集定时器"""
+    with auto_collection_lock:
+        # 如果已存在，先停止
+        if data_id in auto_collection_timers:
+            auto_collection_timers[data_id]['enabled'] = False
+            time.sleep(0.5)  # 等待线程退出
+        
+        # 创建新线程
+        thread = threading.Thread(
+            target=auto_collection_worker,
+            args=(data_id, data_name, data_type, config, update_freq),
+            daemon=True
+        )
+        
+        auto_collection_timers[data_id] = {
+            'thread': thread,
+            'enabled': True,
+            'data_name': data_name,
+            'data_type': data_type,
+            'update_freq': update_freq
+        }
+        
+        thread.start()
+        print(f"[自动采集] 定时器已启动: {data_name} (dataID={data_id})")
+
+
+def stop_auto_collection_timer(data_id):
+    """停止自动采集定时器"""
+    with auto_collection_lock:
+        if data_id in auto_collection_timers:
+            auto_collection_timers[data_id]['enabled'] = False
+            data_name = auto_collection_timers[data_id].get('data_name', 'Unknown')
+            print(f"[自动采集] 停止定时器: {data_name} (dataID={data_id})")
+            return True
+        return False
+
+
+def init_auto_collection_timers():
+    """初始化所有启用的自动采集定时器"""
+    try:
+        db = Date_base()
+        
+        # 查询所有启用自动采集的数据源
+        success, result = db.select("SELECT dataID, dataName, key1, value, status FROM config WHERE key2 = 'config'")
+        
+        if success and result:
+            for row in result:
+                data_id, data_name, data_type, value, status = row
+                
+                # 只处理启用的数据源
+                if status != '1':
+                    continue
+                
+                try:
+                    config_json = json.loads(value) if value else {}
+                    
+                    # 检查是否启用自动采集
+                    auto_collect = config_json.get('autoCollect', False)
+                    update_freq = config_json.get('updateFreq', '15min')
+                    
+                    if auto_collect and data_type in ['youpin', 'buff']:
+                        print(f"[自动采集] 初始化定时器: {data_name} (dataID={data_id})")
+                        start_auto_collection_timer(data_id, data_name, data_type, config_json, update_freq)
+                        
+                except Exception as e:
+                    print(f"[自动采集] 初始化定时器失败: {data_name}, 错误: {e}")
+        
+        print(f"[自动采集] 定时器初始化完成，共启动 {len(auto_collection_timers)} 个定时器")
+        
+    except Exception as e:
+        print(f"[自动采集] 初始化定时器失败: {e}")
+
+
+# 在模块加载时初始化定时器
+init_auto_collection_timers()
