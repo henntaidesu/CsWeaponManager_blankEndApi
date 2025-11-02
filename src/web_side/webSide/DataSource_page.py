@@ -263,9 +263,9 @@ def get_datasource_by_id(data_id):
         
         # 查询指定dataID的配置
         select_sql = f"SELECT dataID, dataName, key1, key2, value, status, steamID FROM config WHERE dataID = {data_id} AND key2 = 'config'"
-        result = db.select(select_sql)
+        success, result = db.select(select_sql)
         
-        if not result:
+        if not success or not result:
             return jsonify({
                 'success': False,
                 'message': f'未找到 dataID={data_id} 的数据源'
