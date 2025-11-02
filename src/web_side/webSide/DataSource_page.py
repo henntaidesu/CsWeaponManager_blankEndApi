@@ -255,6 +255,55 @@ def add_datasource():
         }), 500
 
 
+@dataSourcePage.route('/api/datasource/<int:data_id>', methods=['GET'])
+def get_datasource_by_id(data_id):
+    """获取单个数据源详细信息"""
+    try:
+        db = Date_base()
+        
+        # 查询指定dataID的配置
+        select_sql = f"SELECT dataID, dataName, key1, key2, value, status, steamID FROM config WHERE dataID = {data_id} AND key2 = 'config'"
+        result = db.select(select_sql)
+        
+        if not result:
+            return jsonify({
+                'success': False,
+                'message': f'未找到 dataID={data_id} 的数据源'
+            }), 404
+        
+        # 解析数据
+        data_id, data_name, data_type, key2, value, status, steam_id = result[0]
+        
+        # 解析配置JSON
+        config_json = {}
+        try:
+            config_json = json.loads(value) if value else {}
+        except:
+            pass
+        
+        # 构建响应数据
+        datasource = {
+            'dataID': data_id,
+            'dataName': data_name,
+            'type': data_type,
+            'enabled': status == '1',
+            'steamID': steam_id or '',
+            'config': config_json
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': datasource
+        }), 200
+        
+    except Exception as e:
+        Log().write_log(f"获取数据源失败: {str(e)}", 'error')
+        return jsonify({
+            'success': False,
+            'message': f'服务器错误: {str(e)}'
+        }), 500
+
+
 @dataSourcePage.route('/api/datasource/<int:data_id>', methods=['PUT'])
 def update_datasource(data_id):
     """更新数据源"""
