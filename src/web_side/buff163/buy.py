@@ -38,7 +38,7 @@ def getLatestData(user_id):
     """获取指定用户的最新一条购买记录（ID和订单时间）"""
     try:
         records = BuffBuyModel.find_all(
-            "data_user = ? ORDER BY created_at DESC", 
+            "data_user = ? ORDER BY order_time DESC", 
             (user_id,), 
             limit=1
         )
